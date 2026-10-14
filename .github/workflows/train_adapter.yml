@@ -8,7 +8,6 @@ on:
         required: true
         type: string
 
-# Grant repository write permissions so Rob can sync vendor files & general training commits back to main
 permissions:
   contents: write
 
@@ -22,11 +21,11 @@ jobs:
       - name: Audit and Sync Autonomous Vendor Engine
         run: |
           if [ ! -f "vendor/index.js" ]; then
-            echo "🤖 Rob: Vendor engine missing. Pulling official release tarball from npm registry..."
+            echo "🤖 Rob: Vendor engine missing. Pulling release tarball from sovereign repository assets..."
             mkdir -p temp_tgz vendor
             
-            # Download official npm tarball
-            curl -sSL "https://registry.npmjs.org/@mlc-ai/web-llm/-/web-llm-0.2.86.tgz" -o temp_tgz/web-llm.tgz
+            # Download directly from sovereign release assets
+            curl -L -o temp_tgz/web-llm.tgz "https://github.com/${{ github.repository }}/releases/download/v1.0-base-model/web-llm-0.2.86.tgz"
             
             # Unpack tarball
             tar -xzf temp_tgz/web-llm.tgz -C temp_tgz
@@ -51,6 +50,14 @@ jobs:
             echo "🟢 Rob: Vendor engine verified and locked in repository."
           fi
 
+      - name: Fetch Sovereign Base Model from Release Assets
+        run: |
+          mkdir -p ./base_model_cache
+          echo "🤖 Rob: Downloading sovereign base model archive from repository release assets..."
+          curl -L -o qwen_base.tar.gz "https://github.com/${{ github.repository }}/releases/download/v1.0-base-model/qwen_base.tar.gz"
+          tar -xzf qwen_base.tar.gz -C ./base_model_cache
+          echo "🟢 Base model secured locally from sovereign storage!"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -68,8 +75,8 @@ jobs:
           from transformers import AutoModelForCausalLM, AutoTokenizer
           from peft import LoraConfig, get_peft_model
 
-          print("🤖 Rob: Initializing core base model (Qwen-2.5-0.5B-Instruct)...")
-          model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+          print("🤖 Rob: Initializing sovereign base model from local cache...")
+          model_id = "./base_model_cache"
           tok = AutoTokenizer.from_pretrained(model_id)
           base = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
 
@@ -101,7 +108,6 @@ jobs:
           print("🤖 Rob: Packaging custom weights...")
           model.save_pretrained("./temp_lora")
           
-          # Stream the weights out to logs as a secure base64 payload
           with open("./temp_lora/adapter_model.safetensors", "rb") as f:
               encoded_weights = base64.b64encode(f.read()).decode('utf-8')
               print("---START_WEIGHT_STREAM---")
