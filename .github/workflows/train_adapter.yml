@@ -48,7 +48,7 @@ jobs:
             git push origin main
             echo "🟢 Rob: Official web-llm package extracted and pushed to repository!"
           else
-            echo "🤖 Rob: Vendor engine verified and locked in repository."
+            echo "🟢 Rob: Vendor engine verified and locked in repository."
           fi
 
       - name: Setup Python

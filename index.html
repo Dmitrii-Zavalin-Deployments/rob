@@ -92,12 +92,12 @@
                             <span id="adapter-status" class="status-badge">No Adapter Cached</span>
                         </div>
                         <div>
-                            <button class="btn" style="background: #8957e5; padding: 5px 12px; font-size: 12px;" onclick="initAutonomousKernel()">⚡ Initialize WebGPU Engine</button>
+                            <button class="btn" style="background: #8957e5; padding: 5px 12px; font-size: 12px;" onclick="initializeAndTrainRob()">⚡ Initialize & Train Rob</button>
                         </div>
                     </div>
                     
                     <div id="chat-history">
-                        <div class="chat-msg chat-rob">🤖 Rob: Ready! Click "Initialize WebGPU Engine" above to load my autonomous kernel into your graphics card.</div>
+                        <div class="chat-msg chat-rob">🤖 Rob: Ready! Click "Initialize & Train Rob" above to compile general training files and load my kernel.</div>
                     </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 8px;">
@@ -105,8 +105,8 @@
                         <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 12px; color: #8b949e;">General knowledge correction?</span>
-                        <button class="btn" style="background: #21262d; border: 1px solid #30363d; font-size: 12px; padding: 5px 10px;" onclick="trainOnRecentChat()">💡 Train Rob on Last Q&A 🚀</button>
+                        <span style="font-size: 12px; color: #8b949e;">Want to curate knowledge?</span>
+                        <button class="btn" style="background: #21262d; border: 1px solid #30363d; font-size: 12px; padding: 5px 10px;" onclick="downloadChatAsTxt()">📥 Download Chat as TXT</button>
                     </div>
                 </div>
             </div>
@@ -131,16 +131,16 @@
 
                 <!-- Knowledge Ingestion Panel (Business Training) -->
                 <div class="card">
-                    <h2>🧠 Business Training & Private Materials</h2>
-                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Paste business criteria, architecture rules, or training notes below. Rob will compile them securely via GitHub Actions.</p>
-                    <textarea id="train-data" placeholder="Paste business strategies, operational rules, or training notes here..."></textarea>
-                    <button class="btn" style="width: 100%; margin-top: 5px;" onclick="launchRobTraining()">Dispatch Rob to Train 🚀</button>
+                    <h2>🧠 Private Business Materials</h2>
+                    <p style="font-size:13px; color:#8b949e; margin-top:0;"></p>Paste confidential business criteria or architecture rules below for ephemeral private training passes.</p>
+                    <textarea id="train-data" placeholder="Paste confidential strategies or operational rules here..."></textarea>
+                    <button class="btn" style="width: 100%; margin-top: 5px;" onclick="launchPrivateTraining()">Dispatch Private Training 🚀</button>
                 </div>
 
                 <!-- Terminal Output Monitor -->
                 <div class="card" style="margin-bottom: 0;">
                     <h2>📡 Rob's Live Status Terminal</h2>
-                    <div id="log-terminal">System Initialized. Awaiting credentials and training payload...</div>
+                    <div id="log-terminal">System Initialized. Awaiting credentials and initialization command...</div>
                 </div>
             </div>
         </div>
@@ -148,8 +148,6 @@
 
     <script>
         let engine = null;
-        let lastUserMessage = "";
-        let lastRobResponse = "";
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
         // Load saved config & check adapter status on startup
@@ -175,12 +173,195 @@
             }
         }
 
-        async function initAutonomousKernel() {
+        // Export chat history as a .txt file for manual curation into general_training/
+        function downloadChatAsTxt() {
+            const historyDiv = document.getElementById('chat-history');
+            const msgs = historyDiv.getElementsByClassName('chat-msg');
+            if (msgs.length <= 1) {
+                alert("No chat conversation to export yet!");
+                return;
+            }
+
+            let chatText = "--- Rob Sovereign AI Chat Export ---\nGenerated: " + new Date().toISOString() + "\n\n";
+            for (let msg of msgs) {
+                chatText += msg.innerText + "\n\n";
+            }
+
+            const blob = new Blob([chatText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `rob_chat_export_${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Master function: Triggers GitHub Actions training (ingesting general_training/ folder), fetches weights, then boots WebGPU
+        async function initializeAndTrainRob() {
+            const token = document.getElementById('gh-token').value;
+            const repo = document.getElementById('gh-repo').value;
+            const term = document.getElementById('log-terminal');
+
+            if (!token || !repo) {
+                alert("Please configure your GitHub Token and Repository name in the top-right panel first!");
+                return;
+            }
+
+            term.innerText = "🤖 Rob: Triggering automated cloud training (scanning general_training/ folder)...\n";
+
+            try {
+                const dispatchRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/dispatches`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ref: 'main',
+                        inputs: { training_text: "Automated initialization training pass incorporating general_training/ folder." }
+                    })
+                });
+
+                if (dispatchRes.status !== 204) {
+                    const err = await dispatchRes.json();
+                    term.innerText += `🔴 Error dispatching training workflow: ${err.message}\n`;
+                    return;
+                }
+
+                term.innerText += "🟢 Training workflow successfully dispatched! Waiting 15s for runner startup...\n";
+                await new Promise(r => setTimeout(r, 15000));
+                
+                pollWorkflowRunAndBoot(token, repo, term);
+
+            } catch (err) {
+                term.innerText += `🔴 Critical Error: ${err.message}\n`;
+            }
+        }
+
+        async function launchPrivateTraining() {
+            const token = document.getElementById('gh-token').value;
+            const repo = document.getElementById('gh-repo').value;
+            const textData = document.getElementById('train-data').value;
+            const term = document.getElementById('log-terminal');
+
+            if (!token || !repo || !textData) {
+                alert("Please fill in your GitHub Token, Repository name, and private training text!");
+                return;
+            }
+
+            localStorage.setItem('rob_last_training_text', textData);
+            term.innerText = "🤖 Rob: Dispatched private training payload securely...\n";
+
+            const dispatchRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/dispatches`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/vnd.github+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ref: 'main',
+                    inputs: { training_text: textData }
+                })
+            });
+
+            if (dispatchRes.status === 204) {
+                term.innerText += "🟢 Private training workflow triggered successfully!\n";
+                await new Promise(r => setTimeout(r, 15000));
+                pollWorkflowRunOnly(token, repo, term);
+            }
+        }
+
+        async function pollWorkflowRunAndBoot(token, repo, term) {
+            term.innerText += "🔍 Rob: Polling GitHub Actions run status...\n";
+            try {
+                const runsRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/runs?per_page=1`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+                });
+                const runsData = await runsRes.json();
+                
+                if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
+                    term.innerText += "⚠️ No recent runs found.\n";
+                    return;
+                }
+
+                const latestRun = runsData.workflow_runs[0];
+                term.innerText += `Run Status: [${latestRun.status}] - Conclusion: [${latestRun.conclusion || 'in_progress'}]\n`;
+
+                if (latestRun.status === 'completed') {
+                    if (latestRun.conclusion === 'success') {
+                        term.innerText += "🎉 Training completed successfully! Extracting weights...\n";
+                        await fetchLogsAndExtractWeights(token, repo, latestRun.id, term);
+                        // Now boot the WebGPU engine
+                        bootWebGPUEngine();
+                    } else {
+                        term.innerText += `🔴 Training failed with conclusion: ${latestRun.conclusion}\n`;
+                    }
+                } else {
+                    term.innerText += "⏳ Training in progress... checking again in 10s.\n";
+                    setTimeout(() => pollWorkflowRunAndBoot(token, repo, term), 10000);
+                }
+            } catch (err) {
+                term.innerText += `⚠️ Polling error: ${err.message}. Retrying...\n`;
+                setTimeout(() => pollWorkflowRunAndBoot(token, repo, term), 10000);
+            }
+        }
+
+        async function pollWorkflowRunOnly(token, repo, term) {
+            try {
+                const runsRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/runs?per_page=1`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+                });
+                const runsData = await runsRes.json();
+                const latestRun = runsData.workflow_runs[0];
+                if (latestRun.status === 'completed' && latestRun.conclusion === 'success') {
+                    term.innerText += "🎉 Private training completed and cached!\n";
+                    fetchLogsAndExtractWeights(token, repo, latestRun.id, term);
+                } else if (latestRun.status !== 'completed') {
+                    setTimeout(() => pollWorkflowRunOnly(token, repo, term), 10000);
+                }
+            } catch (err) {
+                setTimeout(() => pollWorkflowRunOnly(token, repo, term), 10000);
+            }
+        }
+
+        async function fetchLogsAndExtractWeights(token, repo, runId, term) {
+            try {
+                const jobsRes = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+                });
+                const jobsData = await jobsRes.json();
+                const jobId = jobsData.jobs[0].id;
+                
+                const logRes = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${jobId}/logs`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+                });
+
+                const fullLogText = await logRes.text();
+                const streamMatch = fullLogText.match(/---START_WEIGHT_STREAM---([\s\S]*?)---END_WEIGHT_STREAM---/);
+
+                if (streamMatch && streamMatch[1]) {
+                    const base64Weights = streamMatch[1].replace(/\s/g, '');
+                    localStorage.setItem('rob_adapter_weights', base64Weights);
+                    term.innerText += `⚡ Weights cached (${(base64Weights.length * 0.75 / 1024).toFixed(2)} KB).\n`;
+                    checkAdapterCache();
+                }
+            } catch (err) {
+                term.innerText += `🔴 Log extraction error: ${err.message}\n`;
+            }
+        }
+
+        async function bootWebGPUEngine() {
             const history = document.getElementById('chat-history');
             const inputField = document.getElementById('chat-input');
             const sendBtn = document.getElementById('send-btn');
+            const term = document.getElementById('log-terminal');
 
-            history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Booting local WebGPU engine... Fetching model weights (${selectedModel}). Please wait...</div>`;
+            term.innerText += "⚡ Booting local WebGPU engine into graphics card...\n";
+            history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with latest compiled general knowledge... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
             try {
@@ -191,17 +372,18 @@
                     initProgressCallback: (progress) => {
                         console.log(progress.text);
                         if (progress.progress === 1) {
-                            history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local inference active.</div>`;
+                            history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence active.</div>`;
                             history.scrollTop = history.scrollHeight;
                             
                             inputField.disabled = false;
                             sendBtn.disabled = false;
                             inputField.placeholder = "Type a message to Rob...";
+                            term.innerText += "🟢 Rob is fully online and ready for local inference!\n";
                         }
                     }
                 });
             } catch (err) {
-                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}. Ensure your browser supports WebGPU.</div>`;
+                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
             }
         }
@@ -212,8 +394,6 @@
             const userText = inputField.value.trim();
 
             if (!userText || !engine) return;
-
-            lastUserMessage = userText;
 
             history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${userText}</div>`;
             inputField.value = '';
@@ -244,193 +424,8 @@
                     replyDiv.innerText = "🤖 Rob: " + fullReply;
                     history.scrollTop = history.scrollHeight;
                 }
-                lastRobResponse = fullReply;
             } catch (err) {
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
-            }
-        }
-
-        // Commits general training correction directly into general_training/ folder on GitHub
-        async function trainOnRecentChat() {
-            if (!lastUserMessage || !lastRobResponse) {
-                alert("No recent conversation found to train on yet!");
-                return;
-            }
-
-            const correctedAnswer = prompt(
-                "💡 Review/Edit Corrected Q&A for General Repository Knowledge:\n(This will be committed to the public repository under general_training/)",
-                `User Instruction: ${lastUserMessage}\nExpected Correct Behavior: ${lastRobResponse}`
-            );
-
-            if (!correctedAnswer) return;
-
-            const token = document.getElementById('gh-token').value;
-            const repo = document.getElementById('gh-repo').value;
-            const term = document.getElementById('log-terminal');
-
-            if (!token || !repo) {
-                alert("Please configure your GitHub Token and Repository name in the top-right configuration panel first!");
-                return;
-            }
-
-            term.innerText = "🤖 Rob: Committing general training correction to repository (`general_training/`)...\n";
-
-            try {
-                const fileName = `general_training/qa_${Date.now()}.txt`;
-                const fileContentBase64 = b64EncodeUnicode(correctedAnswer);
-
-                const commitRes = await fetch(`https://api.github.com/repos/${repo}/contents/${fileName}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: `feat(knowledge): add general Q&A correction for: ${lastUserMessage}`,
-                        content: fileContentBase64,
-                        branch: 'main'
-                    })
-                });
-
-                if (commitRes.status === 201 || commitRes.status === 200) {
-                    term.innerText += `🟢 Successfully committed ${fileName} to repository!\n`;
-                    term.innerText += "🚀 Triggering GitHub Actions training workflow to incorporate shared knowledge...\n";
-                    
-                    await dispatchWorkflowDirectly(token, repo, `Incorporate general training file: ${fileName}`, term);
-                } else {
-                    const err = await commitRes.json();
-                    term.innerText += `🔴 Error committing knowledge file: ${err.message}\n`;
-                }
-            } catch (err) {
-                term.innerText += `🔴 Critical Error: ${err.message}\n`;
-            }
-        }
-
-        function b64EncodeUnicode(str) {
-            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(match, p1) {
-                return String.fromCharCode('0x' + p1);
-            }));
-        }
-
-        async function dispatchWorkflowDirectly(token, repo, payloadText, term) {
-            try {
-                const dispatchRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/dispatches`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        ref: 'main',
-                        inputs: { training_text: payloadText }
-                    })
-                });
-
-                if (dispatchRes.status === 204) {
-                    term.innerText += "🟢 Training workflow successfully triggered! Polling logs...\n";
-                    await new Promise(r => setTimeout(r, 15000));
-                    pollWorkflowRun(token, repo, term);
-                } else {
-                    const err = await dispatchRes.json();
-                    term.innerText += `🔴 Dispatch error: ${err.message}\n`;
-                }
-            } catch (err) {
-                term.innerText += `🔴 Dispatch error: ${err.message}\n`;
-            }
-        }
-
-        async function launchRobTraining() {
-            const token = document.getElementById('gh-token').value;
-            const repo = document.getElementById('gh-repo').value;
-            const textData = document.getElementById('train-data').value;
-            const term = document.getElementById('log-terminal');
-
-            if (!token || !repo || !textData) {
-                alert("Please fill in your GitHub Token, Repository name, and training text!");
-                return;
-            }
-
-            localStorage.setItem('rob_last_training_text', textData);
-            term.innerText = "🤖 Rob: Connecting to GitHub API infrastructure...\n";
-
-            await dispatchWorkflowDirectly(token, repo, textData, term);
-        }
-
-        async function pollWorkflowRun(token, repo, term) {
-            term.innerText += "🔍 Rob: Scanning GitHub Actions runs for active execution...\n";
-            
-            try {
-                const runsRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/runs?per_page=1`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-                const runsData = await runsRes.json();
-                
-                if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
-                    term.innerText += "⚠️ No recent runs found. Try again.\n";
-                    return;
-                }
-
-                const latestRun = runsData.workflow_runs[0];
-                term.innerText += `Current Run Status: [${latestRun.status}] - Conclusion: [${latestRun.conclusion || 'in_progress'}]\n`;
-
-                if (latestRun.status === 'completed') {
-                    if (latestRun.conclusion === 'success') {
-                        term.innerText += "🎉 Rob: Training finished successfully! Extracting weight stream...\n";
-                        fetchLogsAndExtractWeights(token, repo, latestRun.id, term);
-                    } else {
-                        term.innerText += `🔴 Rob: Training failed with conclusion: ${latestRun.conclusion}\n`;
-                    }
-                } else {
-                    term.innerText += "⏳ Training in progress (CPU optimization running)... checking again in 10s.\n";
-                    setTimeout(() => pollWorkflowRun(token, repo, term), 10000);
-                }
-            } catch (err) {
-                term.innerText += `⚠️ Polling error: ${err.message}. Retrying...\n`;
-                setTimeout(() => pollWorkflowRun(token, repo, term), 10000);
-            }
-        }
-
-        async function fetchLogsAndExtractWeights(token, repo, runId, term) {
-            try {
-                term.innerText += "📥 Rob: Fetching execution job details...\n";
-                
-                const jobsRes = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-                const jobsData = await jobsRes.json();
-
-                if (!jobsData.jobs || jobsData.jobs.length === 0) {
-                    term.innerText += "🔴 Error: Could not locate job runner logs.\n";
-                    return;
-                }
-
-                const jobId = jobsData.jobs[0].id;
-                
-                term.innerText += "📦 Rob: Streaming plain text logs from GitHub runner...\n";
-                const logRes = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${jobId}/logs`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-
-                const fullLogText = await logRes.text();
-                const streamMatch = fullLogText.match(/---START_WEIGHT_STREAM---([\s\S]*?)---END_WEIGHT_STREAM---/);
-
-                if (streamMatch && streamMatch[1]) {
-                    const base64Weights = streamMatch[1].replace(/\s/g, '');
-                    localStorage.setItem('rob_adapter_weights', base64Weights);
-                    
-                    term.innerText += "⚡ Rob: Weights successfully decoded and cached in LocalStorage!\n";
-                    term.innerText += `📊 Adapter Binary Size: ${(base64Weights.length * 0.75 / 1024).toFixed(2)} KB\n`;
-                    
-                    checkAdapterCache();
-                    alert("🎉 Rob has successfully trained and stored your custom adapter weights in your browser!");
-                } else {
-                    term.innerText += "⚠️ Rob: Could not parse START/END weight stream markers in logs.\n";
-                }
-
-            } catch (err) {
-                term.innerText += `🔴 Log extraction error: ${err.message}\n`;
             }
         }
     </script>
