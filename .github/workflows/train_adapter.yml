@@ -1,0 +1,69 @@
+name: Rob's Adapter Training Engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      training_text:
+        description: 'Private business templates/materials for Rob'
+        required: true
+        type: string
+
+jobs:
+  build_adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Compute Libraries
+        run: pip install transformers torch accelerate peft
+
+      - name: Execute CPU Adapter Training
+        env:
+          TRAIN_PAYLOAD: ${{ github.event.inputs.training_text }}
+        run: |
+          cat << 'EOF' > run_train.py
+          import os, base64, torch
+          from transformers import AutoModelForCausalLM, AutoTokenizer
+          from peft import LoraConfig, get_peft_model
+
+          print("🤖 Rob: Initializing core base model (Qwen-2.5-0.5B-Instruct)...")
+          model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+          tok = AutoTokenizer.from_pretrained(model_id)
+          base = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
+
+          print("🤖 Rob: Configuring custom LoRA personal appendix...")
+          cfg = LoraConfig(r=4, lora_alpha=8, target_modules=["q_proj", "v_proj"], task_type="CAUSAL_LM")
+          model = get_peft_model(base, cfg)
+
+          # Read user text payload securely from environment variables
+          text = os.environ.get("TRAIN_PAYLOAD", "")
+          inputs = tok(text, return_tensors="pt")
+
+          print("🤖 Rob: Starting low-memory CPU optimization pass...")
+          opt = torch.optim.AdamW(model.parameters(), lr=5e-4)
+          model.train()
+          for epoch in range(3):
+              opt.zero_grad()
+              loss = model(**inputs, labels=inputs["input_ids"]).loss
+              loss.backward()
+              opt.step()
+              print(f"Epoch {epoch+1}/3 complete. Loss: {loss.item():.4f}")
+
+          print("🤖 Rob: Packaging custom weights...")
+          model.save_pretrained("./temp_lora")
+          
+          # Stream the weights out to logs as a secure base64 payload
+          with open("./temp_lora/adapter_model.safetensors", "rb") as f:
+              encoded_weights = base64.b64encode(f.read()).decode('utf-8')
+              print("---START_WEIGHT_STREAM---")
+              print(encoded_weights)
+              print("---END_WEIGHT_STREAM---")
+          print("🤖 Rob: Training complete! Stream ready.")
+          EOF
+          python3 run_train.py
