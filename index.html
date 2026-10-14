@@ -149,16 +149,48 @@
 
         async function fetchLogsAndExtractWeights(token, repo, runId, term) {
             try {
-                const logsRes = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/logs`, {
+                term.innerText += "📥 Rob: Fetching execution job details...\n";
+                
+                // 1. Get the jobs associated with this workflow run
+                const jobsRes = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs`, {
                     headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
                 });
+                const jobsData = await jobsRes.json();
+
+                if (!jobsData.jobs || jobsData.jobs.length === 0) {
+                    term.innerText += "🔴 Error: Could not locate job runner logs.\n";
+                    return;
+                }
+
+                const jobId = jobsData.jobs[0].id;
                 
-                // GitHub logs endpoint returns a zip file. For a simpler direct fetch in advanced versions, 
-                // we can read text or prompt the download. Let's notify the user of successful completion:
-                term.innerText += "✅ Rob: Weight package compiled and verified! Ready for local caching.\n";
-                alert("Rob has successfully finished training your custom adapter in the cloud!");
+                // 2. Download plain text logs directly for this job
+                term.innerText += "📦 Rob: Streaming plain text logs from GitHub runner...\n";
+                const logRes = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${jobId}/logs`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+                });
+
+                const fullLogText = await logRes.text();
+
+                // 3. Extract the Base64 stream between the markers using Regex
+                const streamMatch = fullLogText.match(/---START_WEIGHT_STREAM---([\s\S]*?)---END_WEIGHT_STREAM---/);
+
+                if (streamMatch && streamMatch[1]) {
+                    const base64Weights = streamMatch[1].replace(/\s/g, ''); // Clean line breaks
+                    
+                    // Store the trained adapter weights in browser LocalStorage
+                    localStorage.setItem('rob_adapter_weights', base64Weights);
+                    
+                    term.innerText += "⚡ Rob: Weights successfully decoded and cached in LocalStorage!\n";
+                    term.innerText += `📊 Adapter Binary Size: ${(base64Weights.length * 0.75 / 1024).toFixed(2)} KB\n`;
+                    
+                    alert("🎉 Rob has successfully trained and stored your custom adapter weights in your browser!");
+                } else {
+                    term.innerText += "⚠️ Rob: Could not parse START/END weight stream markers in logs.\n";
+                }
+
             } catch (err) {
-                term.innerText += `⚠️ Log download note: ${err.message}\n`;
+                term.innerText += `🔴 Log extraction error: ${err.message}\n`;
             }
         }
     </script>
