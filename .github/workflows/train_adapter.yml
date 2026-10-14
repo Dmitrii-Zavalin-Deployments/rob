@@ -21,22 +21,34 @@ jobs:
 
       - name: Audit and Sync Autonomous Vendor Engine
         run: |
-          # Check if file is missing, empty, or corrupted with an HTML error response
-          if [ ! -f "vendor/webllm.js" ] || [ ! -s "vendor/webllm.js" ] || grep -q "<html" vendor/webllm.js; then
-            echo "🤖 Rob: Vendor engine missing or corrupted. Pulling clean release from esm.sh..."
-            mkdir -p vendor
-            curl -sSL "https://esm.sh/@mlc-ai/web-llm" -o vendor/webllm.js
+          if [ ! -f "vendor/index.js" ]; then
+            echo "🤖 Rob: Vendor engine missing. Pulling official release tarball from npm registry..."
+            mkdir -p temp_tgz vendor
+            
+            # Download official npm tarball
+            curl -sSL "https://registry.npmjs.org/@mlc-ai/web-llm/-/web-llm-0.2.86.tgz" -o temp_tgz/web-llm.tgz
+            
+            # Unpack tarball
+            tar -xzf temp_tgz/web-llm.tgz -C temp_tgz
+            
+            # Move compiled runtime library into vendor folder
+            cp -r temp_tgz/package/lib/* vendor/
+            
+            # Clean up TypeScript declarations and map files to save space
+            find vendor -name "*.d.ts" -delete
+            find vendor -name "*.map" -delete
+            rm -rf temp_tgz
             
             # Configure git identity for automated sync
             git config --global user.name "Rob Autonomous Agent"
             git config --global user.email "rob@sovereign.local"
             
-            git add vendor/webllm.js
-            git commit -m "chore(vendor): auto-sync clean webllm engine from cloud runner"
+            git add vendor/
+            git commit -m "chore(vendor): auto-sync clean web-llm 0.2.86 release tree"
             git push origin main
-            echo "🟢 Rob: Clean vendor engine successfully synced and pushed to repository!"
+            echo "🟢 Rob: Official web-llm package extracted and pushed to repository!"
           else
-            echo "🟢 Rob: Vendor engine already verified and locked in repository."
+            echo "🟢 Rob: Vendor engine verified and locked in repository."
           fi
 
       - name: Setup Python
