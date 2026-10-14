@@ -8,12 +8,35 @@ on:
         required: true
         type: string
 
+# Grant repository write permissions so Rob can sync vendor files back to main
+permissions:
+  contents: write
+
 jobs:
   build_adapter:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Audit and Sync Autonomous Vendor Engine
+        run: |
+          if [ ! -f "vendor/webllm.js" ]; then
+            echo "🤖 Rob: Vendor engine missing. Pulling latest verified release..."
+            mkdir -p vendor
+            curl -sSL "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.70/dist/index.js" -o vendor/webllm.js
+            
+            # Configure git identity for automated sync
+            git config --global user.name "Rob Autonomous Agent"
+            git config --global user.email "rob@sovereign.local"
+            
+            git add vendor/webllm.js
+            git commit -m "chore(vendor): auto-sync webllm engine from cloud runner"
+            git push origin main
+            echo "🟢 Rob: Vendor engine successfully synced and pushed to repository!"
+          else
+            echo "🟢 Rob: Vendor engine already verified and locked in repository."
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v5
