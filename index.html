@@ -3,13 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meet Rob - Sovereign Hybrid AI</title>
+    <title>Meet Rob — Sovereign Hybrid AI Hub</title>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #0f1115; color: #e1e4e8; padding: 30px; margin: 0; }
-        .wrapper { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-        .card { background: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        h2 { color: #58a6ff; margin-top: 0; }
-        h3 { margin-top: 0; font-size: 16px; color: #8b949e; }
+        body { 
+            font-family: "Segoe UI", Arial, sans-serif; 
+            background: #0f1115; 
+            color: #e1e4e8; 
+            padding: 30px; 
+            margin: 0; 
+            line-height: 1.55;
+        }
+        .wrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        
+        .header-block { margin-bottom: 5px; }
+        .doc-class { font-size: 12px; color: #8b949e; margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600; }
+        h1 { margin: 0; font-size: 26px; font-weight: 600; color: #58a6ff; }
+        
+        .dashboard-grid { 
+            display: grid; 
+            grid-template-columns: 1.2fr 0.8fr; 
+            gap: 20px; 
+        }
+        @media (max-width: 950px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+        .card { background: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h2 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-top: 0; margin-bottom: 12px; }
+        h3 { font-size: 15px; font-weight: 600; color: #8b949e; margin-top: 0; margin-bottom: 10px; }
+        
         textarea, input[type="text"], input[type="password"] { 
             width: 100%; 
             background: #0d1117; 
@@ -18,21 +38,37 @@
             border-radius: 6px; 
             padding: 10px 12px; 
             box-sizing: border-box; 
-            font-family: monospace; 
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: 14px;
             margin-bottom: 10px;
         }
-        textarea { height: 120px; resize: vertical; }
-        .btn { background: #238636; color: #fff; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        textarea { height: 110px; resize: vertical; }
+        
+        .btn { background: #238636; color: #fff; padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s; }
         .btn:hover { background: #2ea043; }
-        #log-terminal, #chat-history { background: #0d1117; color: #33ff33; padding: 15px; font-family: monospace; height: 180px; overflow-y: auto; border-radius: 6px; font-size: 13px; border: 1px solid #30363d; line-height: 1.4; }
-        #chat-history { color: #c9d1d9; height: 260px; display: flex; flex-direction: column; gap: 10px; }
-        .chat-msg { padding: 8px 12px; border-radius: 6px; max-width: 85%; word-wrap: break-word; }
+        .btn:disabled { background: #30363d; color: #6e7681; cursor: not-allowed; }
+
+        #log-terminal, #chat-history { 
+            background: #0d1117; 
+            color: #33ff33; 
+            padding: 15px; 
+            font-family: monospace; 
+            height: 180px; 
+            overflow-y: auto; 
+            border-radius: 6px; 
+            font-size: 13px; 
+            border: 1px solid #30363d; 
+            line-height: 1.4; 
+        }
+        #chat-history { color: #c9d1d9; height: 380px; display: flex; flex-direction: column; gap: 10px; font-family: "Segoe UI", Arial, sans-serif; }
+        .chat-msg { padding: 10px 14px; border-radius: 6px; max-width: 88%; word-wrap: break-word; font-size: 14px; }
         .chat-user { background: #1f6feb; color: white; align-self: flex-end; }
-        .chat-rob { background: #21262d; border: 1px solid #30363d; align-self: flex-start; color: #58a6ff; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .status-badge { display: inline-block; padding: 4px 8px; font-size: 11px; border-radius: 4px; font-weight: bold; background: #238636; color: white; margin-bottom: 10px; }
+        .chat-rob { background: #21262d; border: 1px solid #30363d; align-self: flex-start; color: #c9d1d9; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .status-badge { display: inline-block; padding: 4px 8px; font-size: 11px; border-radius: 4px; font-weight: bold; background: #da3633; color: white; margin-bottom: 10px; }
     </style>
-    <!-- Import official local module tree from ./vendor/index.js -->
+    <!-- Import official local module tree -->
     <script type="module">
         import * as webllm from "./vendor/index.js";
         window.webllm = webllm;
@@ -40,59 +76,80 @@
 </head>
 <body>
     <div class="wrapper">
-        <h2>🤖 Meet Rob: Your Sovereign AI Hub</h2>
-        <p style="color: #8b949e; margin-top: -10px;">Cloud-trained, locally cached, 100% independent intelligence.</p>
+        <div class="header-block">
+            <div class="doc-class">Autonomous Architecture Node v2.0</div>
+            <h1>🤖 Meet Rob: Sovereign Hybrid AI Hub</h1>
+            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Cloud-trained, locally cached, 100% independent edge intelligence.</p>
+        </div>
 
-        <!-- Configuration Panel -->
-        <div class="card">
-            <h3>⚙️ GitHub Credentials & Settings</h3>
-            <div class="grid-2">
-                <div>
-                    <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">GitHub Personal Access Token (PAT):</label>
-                    <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+        <div class="dashboard-grid">
+            <!-- LEFT COLUMN: Chat Interface -->
+            <div>
+                <div class="card" style="height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                    <h2>💬 Talk to Rob (Edge Kernel + Personal Cache)</h2>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <div>
+                            <span id="adapter-status" class="status-badge">No Adapter Cached</span>
+                        </div>
+                        <div>
+                            <button class="btn" style="background: #8957e5; padding: 5px 12px; font-size: 12px;" onclick="initAutonomousKernel()">⚡ Initialize WebGPU Engine</button>
+                        </div>
+                    </div>
+                    
+                    <div id="chat-history">
+                        <div class="chat-msg chat-rob">🤖 Rob: Ready! Click "Initialize WebGPU Engine" above to load my autonomous kernel into your graphics card.</div>
+                    </div>
+
+                    <div style="margin-top: 15px; display: flex; gap: 8px;">
+                        <input type="text" id="chat-input" placeholder="Initialize engine first..." disabled style="margin-bottom: 0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
+                        <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
+                    </div>
+                    <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 12px; color: #8b949e;">Learned something new?</span>
+                        <button class="btn" style="background: #21262d; border: 1px solid #30363d; font-size: 12px; padding: 5px 10px;" onclick="trainOnRecentChat()">💡 Train Rob on Last Q&A 🚀</button>
+                    </div>
                 </div>
-                <div>
-                    <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">Repository (username/repo):</label>
-                    <input type="text" id="gh-repo" placeholder="your-username/your-repo-name">
+            </div>
+
+            <!-- RIGHT COLUMN: Credentials & Business Training -->
+            <div>
+                <!-- Configuration Panel -->
+                <div class="card">
+                    <h2>⚙️ GitHub Credentials & Settings</h2>
+                    <div class="grid-2">
+                        <div>
+                            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">GitHub PAT:</label>
+                            <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">Repository:</label>
+                            <input type="text" id="gh-repo" placeholder="username/repo">
+                        </div>
+                    </div>
+                    <button class="btn" style="background: #1f6feb; margin-top: 2px; width: 100%;" onclick="saveConfig()">Save Config Locally</button>
                 </div>
-            </div>
-            <button class="btn" style="background: #1f6feb; margin-top: 5px;" onclick="saveConfig()">Save Config Locally</button>
-        </div>
 
-        <!-- Knowledge Ingestion Panel -->
-        <div class="card">
-            <h3>🧠 Train Rob on Private Materials</h3>
-            <p style="font-size:13px; color:#8b949e;">Paste your private templates, notes, or business criteria below. Rob will compile them securely via GitHub Actions.</p>
-            <textarea id="train-data" placeholder="Paste business strategies, operational rules, or project context here..."></textarea>
-            <div style="margin-top: 15px;">
-                <button class="btn" onclick="launchRobTraining()">Dispatch Rob to Train 🚀</button>
-            </div>
-        </div>
+                <!-- Knowledge Ingestion Panel (Business Training) -->
+                <div class="card">
+                    <h2>🧠 Business Training & Private Materials</h2>
+                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Paste business criteria, architecture rules, or chat corrections below. Rob will compile them securely via GitHub Actions.</p>
+                    <textarea id="train-data" placeholder="Paste business strategies, operational rules, or training notes here..."></textarea>
+                    <button class="btn" style="width: 100%; margin-top: 5px;" onclick="launchRobTraining()">Dispatch Rob to Train 🚀</button>
+                </div>
 
-        <!-- Terminal Output Monitor -->
-        <div class="card">
-            <h3>📡 Rob's Live Status Terminal</h3>
-            <div id="log-terminal">System Initialized. Awaiting credentials and training payload...</div>
-        </div>
-
-        <!-- Chat Panel -->
-        <div class="card">
-            <h3>💬 Talk to Rob (Edge Kernel + Personal Cache)</h3>
-            <div id="adapter-status" class="status-badge" style="background: #da3633;">No Adapter Cached</div>
-            <button class="btn" style="background: #8957e5; margin-left: 10px; padding: 4px 10px; font-size: 12px;" onclick="initAutonomousKernel()">⚡ Initialize WebGPU Engine</button>
-            
-            <div id="chat-history" style="margin-top: 10px;">
-                <div class="chat-msg chat-rob">🤖 Rob: Ready! Click "Initialize WebGPU Engine" above to load my autonomous kernel into your graphics card.</div>
-            </div>
-            <div style="margin-top: 15px; display: flex; gap: 10px;">
-                <input type="text" id="chat-input" placeholder="Type a message to Rob..." style="margin-bottom: 0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
-                <button class="btn" onclick="sendChatMessage()">Send 💬</button>
+                <!-- Terminal Output Monitor -->
+                <div class="card" style="margin-bottom: 0;">
+                    <h2>📡 Rob's Live Status Terminal</h2>
+                    <div id="log-terminal">System Initialized. Awaiting credentials and training payload...</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         let engine = null;
+        let lastUserMessage = "";
+        let lastRobResponse = "";
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
         // Load saved config & check adapter status on startup
@@ -114,13 +171,17 @@
                 badge.innerText = `🟢 Personal Adapter Active (${(weights.length * 0.75 / 1024).toFixed(1)} KB cached)`;
             } else {
                 badge.style.background = "#da3633";
-                badge.innerText = "🔴 No Adapter Cached (Train above first)";
+                badge.innerText = "🔴 No Adapter Cached";
             }
         }
 
         async function initAutonomousKernel() {
             const history = document.getElementById('chat-history');
-            history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Booting local WebGPU engine... Fetching model weights (${selectedModel})...</div>`;
+            const inputField = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
+
+            history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Booting local WebGPU engine... Fetching model weights (${selectedModel}). Please wait...</div>`;
+            history.scrollTop = history.scrollHeight;
             
             try {
                 if (!window.webllm || !window.webllm.CreateMLCEngine) {
@@ -132,11 +193,17 @@
                         if (progress.progress === 1) {
                             history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local inference active.</div>`;
                             history.scrollTop = history.scrollHeight;
+                            
+                            // Unlock chat input and send button once loaded
+                            inputField.disabled = false;
+                            sendBtn.disabled = false;
+                            inputField.placeholder = "Type a message to Rob...";
                         }
                     }
                 });
             } catch (err) {
-                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}. Ensure your browser supports WebGPU and vendor modules are synced.</div>`;
+                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}. Ensure your browser supports WebGPU.</div>`;
+                history.scrollTop = history.scrollHeight;
             }
         }
 
@@ -145,27 +212,23 @@
             const history = document.getElementById('chat-history');
             const userText = inputField.value.trim();
 
-            if (!userText) return;
+            if (!userText || !engine) return;
+
+            lastUserMessage = userText;
 
             // Render user message
             history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${userText}</div>`;
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
-            if (!engine) {
-                history.innerHTML += `<div class="chat-msg chat-rob">⚠️ Rob: Engine not initialized. Click "Initialize WebGPU Engine" first!</div>`;
-                return;
-            }
-
             // Read private materials context
-            const privateMaterials = localStorage.getItem('rob_last_training_text') || "You are Rob, an autonomous strategic AI assistant.";
+            const privateMaterials = localStorage.getItem('rob_last_training_text') || "You are Rob, an autonomous sovereign AI assistant.";
             
             const messages = [
-                { role: "system", content: `You are Rob, an autonomous sovereign AI. Your operational context: ${privateMaterials}` },
+                { role: "system", content: `You are Rob, an autonomous sovereign AI. Operational context: ${privateMaterials}` },
                 { role: "user", content: userText }
             ];
 
-            // Render placeholder for streaming reply
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
             replyDiv.innerHTML = "🤖 Rob: ";
@@ -184,9 +247,20 @@
                     replyDiv.innerText = "🤖 Rob: " + fullReply;
                     history.scrollTop = history.scrollHeight;
                 }
+                lastRobResponse = fullReply;
             } catch (err) {
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
             }
+        }
+
+        function trainOnRecentChat() {
+            if (!lastUserMessage || !lastRobResponse) {
+                alert("No recent conversation found to train on yet!");
+                return;
+            }
+            const trainingTextArea = document.getElementById('train-data');
+            trainingTextArea.value = `User Instruction: ${lastUserMessage}\nExpected Correct Behavior: ${lastRobResponse}`;
+            alert("💡 Recent chat Q&A populated into Business Training! Click 'Dispatch Rob to Train 🚀' to bake this into Rob's persistent adapter.");
         }
 
         async function launchRobTraining() {
