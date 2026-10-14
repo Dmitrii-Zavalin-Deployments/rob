@@ -8,7 +8,7 @@ on:
         required: true
         type: string
 
-# Grant repository write permissions so Rob can sync vendor files back to main
+# Grant repository write permissions so Rob can sync vendor files & general training commits back to main
 permissions:
   contents: write
 
@@ -48,7 +48,7 @@ jobs:
             git push origin main
             echo "🟢 Rob: Official web-llm package extracted and pushed to repository!"
           else
-            echo "🟢 Rob: Vendor engine verified and locked in repository."
+            echo "🤖 Rob: Vendor engine verified and locked in repository."
           fi
 
       - name: Setup Python
@@ -64,7 +64,7 @@ jobs:
           TRAIN_PAYLOAD: ${{ github.event.inputs.training_text }}
         run: |
           cat << 'EOF' > run_train.py
-          import os, base64, torch
+          import os, base64, torch, glob
           from transformers import AutoModelForCausalLM, AutoTokenizer
           from peft import LoraConfig, get_peft_model
 
@@ -77,9 +77,16 @@ jobs:
           cfg = LoraConfig(r=4, lora_alpha=8, target_modules=["q_proj", "v_proj"], task_type="CAUSAL_LM")
           model = get_peft_model(base, cfg)
 
-          # Read user text payload securely from environment variables
-          text = os.environ.get("TRAIN_PAYLOAD", "")
-          inputs = tok(text, return_tensors="pt")
+          # Aggregate manual payload + all files inside general_training/ folder
+          combined_text = os.environ.get("TRAIN_PAYLOAD", "") + "\n\n"
+          
+          general_files = glob.glob("general_training/*.txt") + glob.glob("general_training/*.md")
+          for file_path in general_files:
+              with open(file_path, "r", encoding="utf-8") as f:
+                  print(f"📄 Ingesting shared general training file: {file_path}")
+                  combined_text += f"\n{f.read()}\n"
+
+          inputs = tok(combined_text, return_tensors="pt")
 
           print("🤖 Rob: Starting low-memory CPU optimization pass...")
           opt = torch.optim.AdamW(model.parameters(), lr=5e-4)

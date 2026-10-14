@@ -105,7 +105,7 @@
                         <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 12px; color: #8b949e;">Learned something new?</span>
+                        <span style="font-size: 12px; color: #8b949e;">General knowledge correction?</span>
                         <button class="btn" style="background: #21262d; border: 1px solid #30363d; font-size: 12px; padding: 5px 10px;" onclick="trainOnRecentChat()">💡 Train Rob on Last Q&A 🚀</button>
                     </div>
                 </div>
@@ -132,7 +132,7 @@
                 <!-- Knowledge Ingestion Panel (Business Training) -->
                 <div class="card">
                     <h2>🧠 Business Training & Private Materials</h2>
-                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Paste business criteria, architecture rules, or chat corrections below. Rob will compile them securely via GitHub Actions.</p>
+                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Paste business criteria, architecture rules, or training notes below. Rob will compile them securely via GitHub Actions.</p>
                     <textarea id="train-data" placeholder="Paste business strategies, operational rules, or training notes here..."></textarea>
                     <button class="btn" style="width: 100%; margin-top: 5px;" onclick="launchRobTraining()">Dispatch Rob to Train 🚀</button>
                 </div>
@@ -194,7 +194,6 @@
                             history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local inference active.</div>`;
                             history.scrollTop = history.scrollHeight;
                             
-                            // Unlock chat input and send button once loaded
                             inputField.disabled = false;
                             sendBtn.disabled = false;
                             inputField.placeholder = "Type a message to Rob...";
@@ -216,12 +215,10 @@
 
             lastUserMessage = userText;
 
-            // Render user message
             history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${userText}</div>`;
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
-            // Read private materials context
             const privateMaterials = localStorage.getItem('rob_last_training_text') || "You are Rob, an autonomous sovereign AI assistant.";
             
             const messages = [
@@ -253,14 +250,95 @@
             }
         }
 
-        function trainOnRecentChat() {
+        // Commits general training correction directly into general_training/ folder on GitHub
+        async function trainOnRecentChat() {
             if (!lastUserMessage || !lastRobResponse) {
                 alert("No recent conversation found to train on yet!");
                 return;
             }
-            const trainingTextArea = document.getElementById('train-data');
-            trainingTextArea.value = `User Instruction: ${lastUserMessage}\nExpected Correct Behavior: ${lastRobResponse}`;
-            alert("💡 Recent chat Q&A populated into Business Training! Click 'Dispatch Rob to Train 🚀' to bake this into Rob's persistent adapter.");
+
+            const correctedAnswer = prompt(
+                "💡 Review/Edit Corrected Q&A for General Repository Knowledge:\n(This will be committed to the public repository under general_training/)",
+                `User Instruction: ${lastUserMessage}\nExpected Correct Behavior: ${lastRobResponse}`
+            );
+
+            if (!correctedAnswer) return;
+
+            const token = document.getElementById('gh-token').value;
+            const repo = document.getElementById('gh-repo').value;
+            const term = document.getElementById('log-terminal');
+
+            if (!token || !repo) {
+                alert("Please configure your GitHub Token and Repository name in the top-right configuration panel first!");
+                return;
+            }
+
+            term.innerText = "🤖 Rob: Committing general training correction to repository (`general_training/`)...\n";
+
+            try {
+                const fileName = `general_training/qa_${Date.now()}.txt`;
+                const fileContentBase64 = b64EncodeUnicode(correctedAnswer);
+
+                const commitRes = await fetch(`https://api.github.com/repos/${repo}/contents/${fileName}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `feat(knowledge): add general Q&A correction for: ${lastUserMessage}`,
+                        content: fileContentBase64,
+                        branch: 'main'
+                    })
+                });
+
+                if (commitRes.status === 201 || commitRes.status === 200) {
+                    term.innerText += `🟢 Successfully committed ${fileName} to repository!\n`;
+                    term.innerText += "🚀 Triggering GitHub Actions training workflow to incorporate shared knowledge...\n";
+                    
+                    await dispatchWorkflowDirectly(token, repo, `Incorporate general training file: ${fileName}`, term);
+                } else {
+                    const err = await commitRes.json();
+                    term.innerText += `🔴 Error committing knowledge file: ${err.message}\n`;
+                }
+            } catch (err) {
+                term.innerText += `🔴 Critical Error: ${err.message}\n`;
+            }
+        }
+
+        function b64EncodeUnicode(str) {
+            return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function toSolidBytes(match, p1) {
+                return String.fromCharCode('0x' + p1);
+            }));
+        }
+
+        async function dispatchWorkflowDirectly(token, repo, payloadText, term) {
+            try {
+                const dispatchRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/dispatches`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.github+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ref: 'main',
+                        inputs: { training_text: payloadText }
+                    })
+                });
+
+                if (dispatchRes.status === 204) {
+                    term.innerText += "🟢 Training workflow successfully triggered! Polling logs...\n";
+                    await new Promise(r => setTimeout(r, 15000));
+                    pollWorkflowRun(token, repo, term);
+                } else {
+                    const err = await dispatchRes.json();
+                    term.innerText += `🔴 Dispatch error: ${err.message}\n`;
+                }
+            } catch (err) {
+                term.innerText += `🔴 Dispatch error: ${err.message}\n`;
+            }
         }
 
         async function launchRobTraining() {
@@ -277,35 +355,7 @@
             localStorage.setItem('rob_last_training_text', textData);
             term.innerText = "🤖 Rob: Connecting to GitHub API infrastructure...\n";
 
-            try {
-                const dispatchRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/dispatches`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        ref: 'main',
-                        inputs: { training_text: textData }
-                    })
-                });
-
-                if (dispatchRes.status !== 204) {
-                    const err = await dispatchRes.json();
-                    term.innerText += `🔴 Error dispatching workflow: ${err.message}\n`;
-                    return;
-                }
-
-                term.innerText += "🟢 Rob: Workflow successfully triggered on GitHub Actions!\n";
-                term.innerText += "⏳ Waiting 15 seconds for runner initialization before polling logs...\n";
-                
-                await new Promise(r => setTimeout(r, 15000));
-                pollWorkflowRun(token, repo, term);
-
-            } catch (err) {
-                term.innerText += `🔴 Critical Error: ${err.message}\n`;
-            }
+            await dispatchWorkflowDirectly(token, repo, textData, term);
         }
 
         async function pollWorkflowRun(token, repo, term) {
