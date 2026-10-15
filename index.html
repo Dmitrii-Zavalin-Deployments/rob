@@ -17,10 +17,10 @@
             <!-- LEFT COLUMN: Chat Interface -->
             <div>
                 <div class="card left-column-card">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
                         <h2 style="margin: 0;">💬 Autonomous AI Workspace</h2>
                         <div>
-                            <span id="engine-status-badge" class="status-badge" style="background: #003366; font-size: 12px; margin-bottom: 0;">⏳ Initializing...</span>
+                            <span id="engine-status-badge" class="status-badge">⏳ Initializing...</span>
                         </div>
                     </div>
                     
@@ -28,13 +28,13 @@
                         <div class="chat-msg chat-rob">Rob: Initializing autonomous engine... Please wait.</div>
                     </div>
 
-                    <!-- INPUT SECTION: Textarea on the left, action buttons stacked on the right -->
-                    <div style="margin-top: 15px; display: flex; gap: 10px; align-items: stretch;">
+                    <!-- INPUT SECTION -->
+                    <div style="margin-top: 16px; display: flex; gap: 10px; align-items: stretch;">
                         <textarea id="chat-input" rows="3" placeholder="Initializing engine..." disabled onkeydown="handleChatKeydown(event)"></textarea>
                         
                         <div style="display: flex; flex-direction: column; gap: 8px; width: 180px;">
-                            <button id="send-btn" class="btn" style="background: #003366; flex: 1; padding: 6px 12px; font-size: 13px;" onclick="sendChatMessage()" disabled>Submit 💬</button>
-                            <button class="btn" style="background: #e1e4e8; color: #1a1a1a; border: 1px solid #d0d7de; flex: 1; padding: 6px 12px; font-size: 12px; white-space: nowrap;" onclick="downloadChatAsTxt()">Export Chat 📥</button>
+                            <button id="send-btn" class="btn" style="flex: 1;" onclick="sendChatMessage()" disabled>Submit 💬</button>
+                            <button class="btn btn-secondary" style="flex: 1; white-space: nowrap;" onclick="downloadChatAsTxt()">Export Chat 📥</button>
                         </div>
                     </div>
                 </div>
@@ -45,11 +45,11 @@
                 <!-- Knowledge Base Panel -->
                 <div class="card">
                     <h2 style="margin-bottom: 12px;">📁 Knowledge Base: general_training/</h2>
-                    <div>
+                    <div style="margin-bottom: 4px;">
                         <span id="rag-status" class="status-badge">Scanning Knowledge Base...</span>
                     </div>
-                    <div style="margin-top: 12px;">
-                        <button class="btn" style="background: #a61c1c; width: 100%; font-size: 13px;" onclick="wipeWebGPUCache()">🧹 Clear Application Cache & Restart Rob AI</button>
+                    <div style="margin-top: 14px;">
+                        <button class="btn btn-danger" style="width: 100%;" onclick="wipeWebGPUCache()">🧹 Clear Application Cache & Restart Rob AI</button>
                     </div>
                 </div>
 
