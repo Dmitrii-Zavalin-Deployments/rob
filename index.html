@@ -51,14 +51,16 @@
             color: #33ff33; 
             padding: 15px; 
             font-family: monospace; 
-            height: 200px; 
+            height: 220px; 
             overflow-y: auto; 
             border-radius: 6px; 
             font-size: 13px; 
             border: 1px solid #30363d; 
             line-height: 1.4; 
+            white-space: pre-wrap;
+            word-break: break-all;
         }
-        #chat-history { color: #c9d1d9; height: 420px; display: flex; flex-direction: column; gap: 10px; font-family: "Segoe UI", Arial, sans-serif; }
+        #chat-history { color: #c9d1d9; height: 420px; display: flex; flex-direction: column; gap: 10px; font-family: "Segoe UI", Arial, sans-serif; white-space: normal; word-break: normal; }
         .chat-msg { padding: 10px 14px; border-radius: 6px; max-width: 88%; word-wrap: break-word; font-size: 14px; }
         .chat-user { background: #1f6feb; color: white; align-self: flex-end; }
         .chat-rob { background: #21262d; border: 1px solid #30363d; align-self: flex-start; color: #c9d1d9; }
@@ -132,26 +134,59 @@
         let generalKnowledgeCorpus = [];
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
-        // Clear out legacy adapter cache on startup
+        // Helper to log messages directly to Rob's System Terminal
+        function logTerm(message) {
+            const term = document.getElementById('log-terminal');
+            if (term) {
+                const timestamp = new Date().toLocaleTimeString();
+                term.innerText += `\n[${timestamp}] ${message}`;
+                term.scrollTop = term.scrollHeight;
+            }
+            console.log(`[Rob Terminal] ${message}`);
+        }
+
+        // Helper to construct exact URL paths for GitHub Pages static assets
+        function getBasePath() {
+            let path = window.location.pathname;
+            if (!path.endsWith('/')) {
+                path = path.substring(0, path.lastIndexOf('/') + 1);
+            }
+            return window.location.origin + path;
+        }
+
+        // Clear legacy cache on startup
         localStorage.removeItem('rob_adapter_weights');
 
-        // Static Client-Side RAG Corpus Loader (Token-free via relative fetch)
+        // Static Client-Side RAG Corpus Loader with detailed terminal logging
         async function loadGeneralTrainingCorpus() {
-            const term = document.getElementById('log-terminal');
             const badge = document.getElementById('rag-status');
+            logTerm("🤖 Initiating scan of general_training/ corpus...");
 
             try {
-                // Fetch static manifest of training files
-                const manifestRes = await fetch('./general_training/manifest.json');
-                if (!manifestRes.ok) throw new Error("manifest.json not found in general_training/");
+                const basePath = getBasePath();
+                const manifestUrl = `${basePath}general_training/manifest.json?v=${Date.now()}`;
+                logTerm(`🔍 Fetching manifest from: ${manifestUrl}`);
+
+                const manifestRes = await fetch(manifestUrl);
+                if (!manifestRes.ok) {
+                    throw new Error(`manifest.json HTTP status ${manifestRes.status} (${manifestRes.statusText})`);
+                }
+                
                 const filenames = await manifestRes.json();
+                logTerm(`📄 Manifest successfully parsed. Found ${filenames.length} file entries: ${JSON.stringify(filenames)}`);
                 
                 generalKnowledgeCorpus = [];
                 for (let filename of filenames) {
-                    const fileRes = await fetch(`./general_training/${filename}`);
+                    const fileUrl = `${basePath}general_training/${filename}?v=${Date.now()}`;
+                    logTerm(`📥 Downloading knowledge file: ${filename} from ${fileUrl}`);
+                    
+                    const fileRes = await fetch(fileUrl);
                     if (fileRes.ok) {
                         const content = await fileRes.text();
                         generalKnowledgeCorpus.push({ name: filename, content: content });
+                        logTerm(`✅ Loaded "${filename}" successfully (${content.length} characters).`);
+                    } else {
+                        logTerm(`❌ Failed to load file "${filename}" (HTTP ${fileRes.status})`);
                     }
                 }
 
@@ -159,21 +194,25 @@
                     badge.style.background = "#238636";
                     badge.innerText = `🟢 RAG Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
                 }
-                if (term) term.innerText += `\n📚 Loaded ${generalKnowledgeCorpus.length} files from general_training/ corpus.`;
+                logTerm(`🎉 Knowledge corpus synchronization complete. Total active docs: ${generalKnowledgeCorpus.length}`);
             } catch (err) {
-                console.warn("Could not load knowledge corpus via manifest:", err);
+                logTerm(`🔴 CRITICAL RAG Error: ${err.message}`);
                 if (badge) {
                     badge.style.background = "#d29922";
-                    badge.innerText = `⚠️ Corpus Manifest Missing`;
+                    badge.innerText = `⚠️ Corpus Sync Failed`;
                 }
-                if (term) term.innerText += `\n⚠️ Create manifest.json in general_training/ listing your .txt files.`;
             }
         }
 
         function searchGeneralTrainingCorpus(userQuery) {
-            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) return "";
+            logTerm(`🔎 RAG Search triggered for query: "${userQuery}"`);
+            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
+                logTerm(`⚠️ RAG search skipped: Corpus is empty.`);
+                return "";
+            }
             
             const queryWords = userQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+            logTerm(`🔑 Extracted search keywords: ${JSON.stringify(queryWords)}`);
             let matchedSnippets = [];
 
             for (let doc of generalKnowledgeCorpus) {
@@ -182,12 +221,16 @@
                 for (let word of queryWords) {
                     if (lowerContent.includes(word)) score++;
                 }
+                logTerm(`📊 Document "${doc.name}" match score: ${score}`);
                 if (score > 0) {
                     matchedSnippets.push(`--- Knowledge File: ${doc.name} ---\n${doc.content}`);
+                    logTerm(`🎯 Match found in "${doc.name}"! Injecting into prompt context.`);
                 }
             }
 
-            return matchedSnippets.length > 0 ? matchedSnippets.join("\n\n") : "";
+            const finalContext = matchedSnippets.length > 0 ? matchedSnippets.join("\n\n") : "";
+            logTerm(`📦 RAG context injection length: ${finalContext.length} characters.`);
+            return finalContext;
         }
 
         function downloadChatAsTxt() {
@@ -212,6 +255,7 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+            logTerm("📥 Chat conversation successfully exported as TXT.");
         }
 
         async function bootRobEngine() {
@@ -222,29 +266,37 @@
             const inputField = document.getElementById('chat-input');
             const sendBtn = document.getElementById('send-btn');
             const bootBtn = document.getElementById('boot-btn');
-            const term = document.getElementById('log-terminal');
 
             bootBtn.disabled = true;
             bootBtn.innerText = "⏳ Booting...";
 
+            logTerm("🚀 Boot sequence initiated...");
             await loadGeneralTrainingCorpus();
 
             if (engine) {
-                try { await engine.unload(); } catch(e) {}
+                logTerm("🧹 Unloading previous WebGPU engine instance...");
+                try { 
+                    await engine.unload(); 
+                    logTerm("✅ Previous engine successfully unloaded.");
+                } catch(e) {
+                    logTerm(`⚠️ Warning during engine unload: ${e.message}`);
+                }
                 engine = null;
             }
 
-            term.innerText = "⚡ Initializing local WebGPU engine into graphics card...\n";
-            history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with client-side RAG corpus... Please wait.</div>`;
+            logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
+            history.innerHTML = `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with client-side RAG corpus... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
             try {
                 if (!window.webllm || !window.webllm.CreateMLCEngine) {
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
+                
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
-                        term.innerText = `⚡ WebGPU Loading: ${Math.round(progress.progress * 100)}% - ${progress.text}\n`;
+                        const pct = Math.round(progress.progress * 100);
+                        logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
                         if (progress.progress === 1) {
                             history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
                             history.scrollTop = history.scrollHeight;
@@ -253,12 +305,13 @@
                             sendBtn.disabled = false;
                             inputField.placeholder = "Type a message to Rob...";
                             bootBtn.innerText = "🟢 Engine Running";
-                            term.innerText += "🟢 Rob is fully online with active client-side RAG!\n";
+                            logTerm("🟢 Rob is fully online with active client-side RAG!");
                             isBooting = false;
                         }
                     }
                 });
             } catch (err) {
+                logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
                 history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
                 bootBtn.disabled = false;
@@ -274,15 +327,19 @@
 
             if (!userText || !engine) return;
 
+            logTerm(`💬 User prompt submitted: "${userText}"`);
             history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${userText}</div>`;
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
             const ragContext = searchGeneralTrainingCorpus(userText);
             
-            let systemPrompt = "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. You respond clearly and accurately.";
+            let systemPrompt = "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Answer the user's question directly and concisely.";
             if (ragContext) {
-                systemPrompt += `\n\n[Retrieved Context from general_training/]:\n${ragContext}\n\nUse the above retrieved context to answer the user's question accurately.`;
+                systemPrompt += `\n\n[Retrieved Knowledge Base Context]:\n${ragContext}\n\nBased strictly on the retrieved knowledge above, answer the user accurately.`;
+                logTerm("🧠 System prompt constructed with RAG context injection.");
+            } else {
+                logTerm("⚠️ System prompt constructed without RAG context (fallback to base model).");
             }
 
             const messages = [
@@ -296,9 +353,10 @@
             history.appendChild(replyDiv);
 
             try {
+                logTerm("🤖 Generating streaming response from WebGPU model...");
                 const completion = await engine.chat.completions.create({
                     messages,
-                    temperature: 0.2,
+                    temperature: 0.1,
                     stream: true
                 });
 
@@ -309,7 +367,9 @@
                     replyDiv.innerText = "🤖 Rob: " + fullReply;
                     history.scrollTop = history.scrollHeight;
                 }
+                logTerm(`✅ Response generation complete (${fullReply.length} characters generated).`);
             } catch (err) {
+                logTerm(`🔴 Generation Error: ${err.message}`);
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
             }
         }
