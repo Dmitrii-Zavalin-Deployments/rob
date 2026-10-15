@@ -3,144 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rob — Autonomous AI Engine</title>
+    <title>Meet Rob — Sovereign Hybrid AI Hub</title>
     <style>
         body { 
             font-family: "Segoe UI", Arial, sans-serif; 
-            background: #f8f9fa; 
-            color: #1a1a1a; 
-            padding: 40px; 
+            background: #0f1115; 
+            color: #e1e4e8; 
+            padding: 30px; 
             margin: 0; 
             line-height: 1.55;
         }
-        .wrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 25px; }
+        .wrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
         
-        .header-block { 
-            text-align: center; 
-            margin-bottom: 10px; 
-        }
-        h1 { 
-            margin: 0; 
-            font-size: 32px; 
-            font-weight: 600; 
-            color: #003366; 
-        }
-        .subtitle {
-            font-size: 16px;
-            color: #555;
-            margin: 6px 0 0 0;
-            letter-spacing: 0.3px;
-        }
+        .header-block { margin-bottom: 5px; }
+        .doc-class { font-size: 12px; color: #8b949e; margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600; }
+        h1 { margin: 0; font-size: 26px; font-weight: 600; color: #58a6ff; }
         
         .dashboard-grid { 
             display: grid; 
             grid-template-columns: 1.2fr 0.8fr; 
-            gap: 25px; 
-            align-items: stretch;
+            gap: 20px; 
         }
         @media (max-width: 950px) { .dashboard-grid { grid-template-columns: 1fr; } }
 
-        .card { 
-            background: #ffffff; 
-            border: 1px solid #d0d7de; 
-            padding: 24px; 
-            border-radius: 6px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .left-column-card {
-            height: 100%;
-        }
-
-        .right-column {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-            height: 100%;
-        }
-
-        h2 { 
-            font-size: 18px; 
-            font-weight: 600; 
-            color: #003366; 
-            margin-top: 0; 
-            margin-bottom: 15px; 
-        }
+        .card { background: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h2 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-top: 0; margin-bottom: 12px; }
         
         input[type="text"] { 
             width: 100%; 
-            background: #ffffff; 
-            color: #1a1a1a; 
-            border: 1px solid #ccc; 
-            border-radius: 4px; 
-            padding: 10px 14px; 
+            background: #0d1117; 
+            color: #c9d1d9; 
+            border: 1px solid #30363d; 
+            border-radius: 6px; 
+            padding: 10px 12px; 
             box-sizing: border-box; 
             font-family: "Segoe UI", Arial, sans-serif;
             font-size: 14px;
             margin-bottom: 10px;
         }
-        input[type="text"]:focus {
-            border-color: #003366;
-            outline: none;
-        }
         
-        .btn { 
-            background: #003366; 
-            color: #fff; 
-            padding: 9px 18px; 
-            border: none; 
-            border-radius: 4px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            font-size: 14px; 
-            transition: background 0.2s; 
-        }
-        .btn:hover { background: #002244; }
-        .btn:disabled { background: #e1e4e8; color: #8c959f; cursor: not-allowed; }
+        .btn { background: #238636; color: #fff; padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s; }
+        .btn:hover { background: #2ea043; }
+        .btn:disabled { background: #30363d; color: #6e7681; cursor: not-allowed; }
 
-        #terminal-card {
-            flex: 1;
-        }
-
-        #log-terminal { 
+        #log-terminal, #chat-history { 
             background: #0d1117; 
             color: #33ff33; 
             padding: 15px; 
             font-family: monospace; 
-            flex: 1;
-            height: 260px;
+            height: 220px; 
             overflow-y: auto; 
-            border-radius: 4px; 
+            border-radius: 6px; 
             font-size: 13px; 
             border: 1px solid #30363d; 
             line-height: 1.4; 
             white-space: pre-wrap;
             word-break: break-all;
-            box-sizing: border-box;
         }
-        #chat-history { 
-            background: #fdfdfd; 
-            color: #1a1a1a; 
-            flex: 1;
-            height: 420px;
-            overflow-y: auto;
-            padding: 15px;
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-            font-family: "Segoe UI", Arial, sans-serif; 
-            border-radius: 4px;
-            border: 1px solid #d0d7de;
-            box-sizing: border-box;
-        }
+        #chat-history { color: #c9d1d9; height: 420px; display: flex; flex-direction: column; gap: 10px; font-family: "Segoe UI", Arial, sans-serif; white-space: normal; word-break: normal; }
         .chat-msg { padding: 10px 14px; border-radius: 6px; max-width: 88%; word-wrap: break-word; font-size: 14px; }
-        .chat-user { background: #003366; color: white; align-self: flex-end; }
-        .chat-rob { background: #f1f3f5; border: 1px solid #d0d7de; align-self: flex-start; color: #1a1a1a; }
+        .chat-user { background: #1f6feb; color: white; align-self: flex-end; }
+        .chat-rob { background: #21262d; border: 1px solid #30363d; align-self: flex-start; color: #c9d1d9; }
         
-        .status-badge { display: inline-block; padding: 4px 10px; font-size: 12px; border-radius: 4px; font-weight: 600; background: #003366; color: white; margin-bottom: 12px; }
+        .status-badge { display: inline-block; padding: 4px 8px; font-size: 11px; border-radius: 4px; font-weight: bold; background: #8957e5; color: white; margin-bottom: 10px; }
     </style>
     <!-- Import official local module tree -->
     <script type="module">
@@ -151,23 +76,27 @@
 <body>
     <div class="wrapper">
         <div class="header-block">
-            <h1>Rob</h1>
-            <p class="subtitle">Autonomous AI Engine</p>
+            <div class="doc-class">Autonomous Architecture Node v2.0</div>
+            <h1>🤖 Meet Rob: Sovereign Edge AI Engine</h1>
+            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Pure WebGPU Local Execution + Dynamic Client-Side RAG (Token-Free).</p>
         </div>
 
         <div class="dashboard-grid">
             <!-- LEFT COLUMN: Chat Interface -->
             <div>
-                <div class="card left-column-card">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                        <h2 style="margin: 0;">💬 Talk to Rob</h2>
+                <div class="card" style="height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+                    <h2>💬 Talk to Rob (Edge Kernel + Client-Side RAG)</h2>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                         <div>
-                            <button id="boot-btn" class="btn" style="background: #003366; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
+                            <span id="rag-status" class="status-badge">Scanning Corpus...</span>
+                        </div>
+                        <div>
+                            <button id="boot-btn" class="btn" style="background: #238636; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
                         </div>
                     </div>
                     
                     <div id="chat-history">
-                        <div class="chat-msg chat-rob">Rob: Standby. Click "⚡ Boot Rob Engine" to load WebGPU kernel and start chatting!</div>
+                        <div class="chat-msg chat-rob">🤖 Rob: Standby. Click "⚡ Boot Rob Engine" to load WebGPU kernel and start chatting!</div>
                     </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 8px;">
@@ -175,30 +104,27 @@
                         <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 12px; color: #555;">Want to export history?</span>
-                        <button class="btn" style="background: #e1e4e8; color: #1a1a1a; border: 1px solid #d0d7de; font-size: 12px; padding: 5px 10px;" onclick="downloadChatAsTxt()">📥 Download Chat as TXT</button>
+                        <span style="font-size: 12px; color: #8b949e;">Want to export history?</span>
+                        <button class="btn" style="background: #21262d; border: 1px solid #30363d; font-size: 12px; padding: 5px 10px;" onclick="downloadChatAsTxt()">📥 Download Chat as TXT</button>
                     </div>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Knowledge Base & Terminal Monitor -->
-            <div class="right-column">
-                <!-- Knowledge Base Panel -->
+            <!-- RIGHT COLUMN: System Status & Corpus Management -->
+            <div>
+                <!-- Status Panel -->
                 <div class="card">
-                    <h2>📁 Knowledge Base</h2>
-                    <div>
-                        <span id="rag-status" class="status-badge">Scanning Corpus...</span>
-                    </div>
-                    <p style="font-size:13px; color:#555; margin-top:4px; margin-bottom:15px;">Automatically connects reference files to inform responses without external data sharing.</p>
+                    <h2>📁 Sovereign Knowledge Base</h2>
+                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Automatically indexes all text files in your local <code>general_training/</code> directory with zero configuration.</p>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn" style="background: #003366; flex: 1;" onclick="loadGeneralTrainingCorpus()">🔄 Refresh Knowledge</button>
-                        <button class="btn" style="background: #a61c1c; flex: 1;" onclick="wipeWebGPUCache()">🧹 Clear Local Memory</button>
+                        <button class="btn" style="background: #1f6feb; flex: 1;" onclick="loadGeneralTrainingCorpus()">🔄 Resync Corpus</button>
+                        <button class="btn" style="background: #da3633; flex: 1;" onclick="wipeWebGPUCache()">🧹 Wipe GPU Cache</button>
                     </div>
                 </div>
 
                 <!-- Terminal Output Monitor -->
-                <div class="card" id="terminal-card">
-                    <h2>📡 System Terminal</h2>
+                <div class="card" style="margin-bottom: 0;">
+                    <h2>📡 Rob's System Terminal</h2>
                     <div id="log-terminal">System Ready. Click "⚡ Boot Rob Engine" to launch.</div>
                 </div>
             </div>
@@ -284,42 +210,17 @@
                 }
 
                 if (badge) {
-                    badge.style.background = "#003366";
-                    badge.innerText = `🟢 Knowledge Base Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
+                    badge.style.background = "#238636";
+                    badge.innerText = `🟢 RAG Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
                 }
                 logTerm(`🎉 Knowledge corpus synchronization complete.`);
             } catch (err) {
                 logTerm(`🔴 CRITICAL RAG Error: ${err.message}`);
                 if (badge) {
-                    badge.style.background = "#b7791f";
+                    badge.style.background = "#d29922";
                     badge.innerText = `⚠️ Corpus Sync Failed`;
                 }
             }
-        }
-
-        function downloadChatAsTxt() {
-            const historyDiv = document.getElementById('chat-history');
-            const msgs = historyDiv.getElementsByClassName('chat-msg');
-            if (msgs.length <= 1) {
-                alert("No chat conversation to export yet!");
-                return;
-            }
-
-            let chatText = "--- Rob AI Engine Chat Export ---\nGenerated: " + new Date().toISOString() + "\n\n";
-            for (let msg of msgs) {
-                chatText += msg.innerText + "\n\n";
-            }
-
-            const blob = new Blob([chatText], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `rob_chat_export_${Date.now()}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            logTerm("📥 Chat conversation successfully exported as TXT.");
         }
 
         async function bootRobEngine() {
@@ -344,7 +245,7 @@
             }
 
             logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
-            history.innerHTML = `<div class="chat-msg chat-rob">Rob: Initializing local WebGPU engine... Please wait.</div>`;
+            history.innerHTML = `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
             try {
@@ -357,7 +258,7 @@
                         const pct = Math.round(progress.progress * 100);
                         logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
                         if (progress.progress === 1) {
-                            history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
+                            history.innerHTML = `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
                             history.scrollTop = history.scrollHeight;
                             
                             inputField.disabled = false;
@@ -371,7 +272,7 @@
                 });
             } catch (err) {
                 logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
-                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">🔴 WebGPU Error: ${err.message}.</div>`;
+                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
                 bootBtn.disabled = false;
                 bootBtn.innerText = "⚡ Boot Rob Engine";
@@ -415,11 +316,12 @@
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
-            replyDiv.innerHTML = "Rob: <i>Thinking...</i>";
+            replyDiv.innerHTML = "🤖 Rob: <i>Thinking...</i>";
             history.appendChild(replyDiv);
             history.scrollTop = history.scrollHeight;
 
             try {
+                // Enable streaming for instant token-by-token visual feedback
                 const asyncIterator = await engine.chat.completions.create({
                     messages,
                     temperature: 0.1,
@@ -431,14 +333,14 @@
                 for await (const chunk of asyncIterator) {
                     const delta = chunk.choices[0]?.delta?.content || "";
                     fullReply += delta;
-                    replyDiv.innerText = "Rob: " + fullReply;
+                    replyDiv.innerText = "🤖 Rob: " + fullReply;
                     history.scrollTop = history.scrollHeight;
                 }
 
                 logTerm(`✅ Streaming response completed successfully (${fullReply.length} characters).`);
             } catch (err) {
                 logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
-                replyDiv.innerText = "Rob Error: " + err.message;
+                replyDiv.innerText = "🤖 Rob Error: " + err.message;
             } finally {
                 inputField.disabled = false;
                 sendBtn.disabled = false;
