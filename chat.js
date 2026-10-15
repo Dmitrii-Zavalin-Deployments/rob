@@ -28,50 +28,62 @@ export async function sendChatMessage() {
     inputField.value = '';
     history.scrollTop = history.scrollHeight;
 
+    // Assemble Knowledge Base Corpus
     let assembledTxt = "";
     const corpus = getCorpus();
-    for (let doc of corpus) {
-        assembledTxt += `\n[File: ${doc.name}]\n${doc.content}\n`;
+    if (corpus && corpus.length > 0) {
+        for (let doc of corpus) {
+            assembledTxt += `\n--- START DOCUMENT: ${doc.name} ---\n${doc.content}\n--- END DOCUMENT ---\n`;
+        }
+    } else {
+        assembledTxt = "No reference documents currently loaded.";
     }
 
+    const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
+Be helpful, polite, precise, and conversational.
+When asked for code, technical architectures, or script modifications, provide complete, clean, and fully functional code blocks.
+If reference knowledge is provided below, use it to accurately inform your answers.
+
+--- KNOWLEDGE BASE REFERENCE ---
+${assembledTxt}`;
+
     const messages = [
-        { 
-            role: "system", 
-            content: `You are Rob, an autonomous sovereign AI created by Dmitrii Zavalin. Answer questions accurately using only the provided reference knowledge base.\n\n--- REFERENCE KNOWLEDGE BASE ---\n${assembledTxt}` 
-        },
-        { 
-            role: "user", 
-            content: userText 
-        }
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userText }
     ];
 
-    logTerm(`📝 Messages payload assembled. Executing non-streaming completion...`);
+    logTerm(`📝 Messages payload assembled. Executing WebGPU streaming completion (max_tokens: 4096)...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
-    replyDiv.innerHTML = "Rob: <i>Thinking...</i>";
+    replyDiv.innerText = "Rob: ";
     history.appendChild(replyDiv);
     history.scrollTop = history.scrollHeight;
 
     try {
-        const completion = await engine.chat.completions.create({
+        const asyncChunkGenerator = await engine.chat.completions.create({
             messages,
-            temperature: 0.1,
-            max_tokens: 128,
-            stream: false
+            temperature: 0.5,
+            top_p: 0.9,
+            max_tokens: 4096,
+            stream: true
         });
 
-        const reply = completion.choices[0]?.message?.content || "(No response generated)";
-        replyDiv.innerText = "Rob: " + reply;
-        history.scrollTop = history.scrollHeight;
+        let fullText = "";
+        for await (const chunk of asyncChunkGenerator) {
+            const content = chunk.choices[0]?.delta?.content || "";
+            fullText += content;
+            replyDiv.innerText = "Rob: " + fullText;
+            history.scrollTop = history.scrollHeight;
+        }
 
-        logTerm(`✅ Response completed successfully (${reply.length} characters).`);
+        logTerm(`✅ Streaming response completed successfully (${fullText.length} characters).`);
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
         // Auto-recovery handler for Invalid buffer / Buffer unmapped faults
         if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
-            logTerm(`⚠️ WebGPU buffer corruption detected. Purging engine state and suggesting cache wipe...`);
+            logTerm(`⚠️ WebGPU buffer corruption detected. Suggesting cache wipe...`);
             replyDiv.innerText = "Rob Error: WebGPU buffer corrupted. Please click '🧹 Clear Application Cache & Restart Rob AI' to clear old cache files and reboot.";
         } else {
             replyDiv.innerText = "Rob Error: " + err.message;
