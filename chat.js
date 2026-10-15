@@ -1,5 +1,5 @@
 import { logTerm } from './logger.js';
-import { getEngine } from './engine.js';
+import { getEngine, bootRobEngine } from './engine.js';
 import { getCorpus } from './rag.js';
 
 console.log("[Module Loaded] chat.js | Functions: sendChatMessage, downloadChatAsTxt");
@@ -9,7 +9,7 @@ export async function sendChatMessage() {
     const sendBtn = document.getElementById('send-btn');
     const history = document.getElementById('chat-history');
     const userText = inputField.value.trim();
-    const engine = getEngine();
+    let engine = getEngine();
 
     if (!userText || !engine) return;
 
@@ -38,7 +38,7 @@ export async function sendChatMessage() {
         }
     ];
 
-    logTerm(`📝 Messages payload assembled. Executing non-streaming completion to ensure WebGPU buffer stability...`);
+    logTerm(`📝 Messages payload assembled. Executing non-streaming completion...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
@@ -61,7 +61,14 @@ export async function sendChatMessage() {
         logTerm(`✅ Response completed successfully (${reply.length} characters).`);
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
-        replyDiv.innerText = "Rob Error: " + err.message;
+        
+        // Auto-recovery handler for Invalid buffer / Buffer unmapped faults
+        if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
+            logTerm(`⚠️ WebGPU buffer corruption detected. Purging engine state and suggesting cache wipe...`);
+            replyDiv.innerText = "Rob Error: WebGPU buffer corrupted. Please click '🧹 Clear Local Memory' to clear old cache files, then reboot.";
+        } else {
+            replyDiv.innerText = "Rob Error: " + err.message;
+        }
     } finally {
         inputField.disabled = false;
         sendBtn.disabled = false;
