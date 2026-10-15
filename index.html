@@ -148,6 +148,7 @@
 
     <script>
         let engine = null;
+        let isBooting = false;
         let generalKnowledgeCorpus = [];
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
@@ -405,10 +406,18 @@
         }
 
         async function bootWebGPUEngine() {
+            if (isBooting) return;
+            isBooting = true;
+
             const history = document.getElementById('chat-history');
             const inputField = document.getElementById('chat-input');
             const sendBtn = document.getElementById('send-btn');
             const term = document.getElementById('log-terminal');
+
+            if (engine) {
+                try { await engine.unload(); } catch(e) {}
+                engine = null;
+            }
 
             term.innerText += "⚡ Booting local WebGPU engine into graphics card...\n";
             history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with client-side RAG corpus... Please wait.</div>`;
@@ -429,12 +438,14 @@
                             sendBtn.disabled = false;
                             inputField.placeholder = "Type a message to Rob...";
                             term.innerText += "🟢 Rob is fully online with active client-side RAG!\n";
+                            isBooting = false;
                         }
                     }
                 });
             } catch (err) {
                 history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
+                isBooting = false;
             }
         }
 
@@ -449,7 +460,6 @@
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
-            // Retrieve matching context from general_training/ txt files via client-side RAG
             const ragContext = searchGeneralTrainingCorpus(userText);
             const privateMaterials = localStorage.getItem('rob_last_training_text') || "You are Rob, an autonomous sovereign AI assistant.";
             
@@ -486,7 +496,6 @@
             }
         }
 
-        // Pre-load corpus on startup if config exists
         loadGeneralTrainingCorpus();
     </script>
 </body>
