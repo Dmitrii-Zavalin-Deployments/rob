@@ -28,9 +28,8 @@
 
         .card { background: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }
         h2 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-top: 0; margin-bottom: 12px; }
-        h3 { font-size: 15px; font-weight: 600; color: #8b949e; margin-top: 0; margin-bottom: 10px; }
         
-        textarea, input[type="text"], input[type="password"] { 
+        input[type="text"], input[type="password"] { 
             width: 100%; 
             background: #0d1117; 
             color: #c9d1d9; 
@@ -42,7 +41,6 @@
             font-size: 14px;
             margin-bottom: 10px;
         }
-        textarea { height: 110px; resize: vertical; }
         
         .btn { background: #238636; color: #fff; padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s; }
         .btn:hover { background: #2ea043; }
@@ -53,20 +51,20 @@
             color: #33ff33; 
             padding: 15px; 
             font-family: monospace; 
-            height: 180px; 
+            height: 200px; 
             overflow-y: auto; 
             border-radius: 6px; 
             font-size: 13px; 
             border: 1px solid #30363d; 
             line-height: 1.4; 
         }
-        #chat-history { color: #c9d1d9; height: 380px; display: flex; flex-direction: column; gap: 10px; font-family: "Segoe UI", Arial, sans-serif; }
+        #chat-history { color: #c9d1d9; height: 420px; display: flex; flex-direction: column; gap: 10px; font-family: "Segoe UI", Arial, sans-serif; }
         .chat-msg { padding: 10px 14px; border-radius: 6px; max-width: 88%; word-wrap: break-word; font-size: 14px; }
         .chat-user { background: #1f6feb; color: white; align-self: flex-end; }
         .chat-rob { background: #21262d; border: 1px solid #30363d; align-self: flex-start; color: #c9d1d9; }
         
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .status-badge { display: inline-block; padding: 4px 8px; font-size: 11px; border-radius: 4px; font-weight: bold; background: #da3633; color: white; margin-bottom: 10px; }
+        .status-badge { display: inline-block; padding: 4px 8px; font-size: 11px; border-radius: 4px; font-weight: bold; background: #8957e5; color: white; margin-bottom: 10px; }
     </style>
     <!-- Import official local module tree -->
     <script type="module">
@@ -78,8 +76,8 @@
     <div class="wrapper">
         <div class="header-block">
             <div class="doc-class">Autonomous Architecture Node v2.0</div>
-            <h1>🤖 Meet Rob: Sovereign Hybrid AI Hub</h1>
-            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Cloud-trained, locally cached, client-side RAG enabled.</p>
+            <h1>🤖 Meet Rob: Sovereign Edge AI Engine</h1>
+            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Pure WebGPU Local Execution + Dynamic Client-Side RAG.</p>
         </div>
 
         <div class="dashboard-grid">
@@ -89,33 +87,34 @@
                     <h2>💬 Talk to Rob (Edge Kernel + Client-Side RAG)</h2>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                         <div>
-                            <span id="adapter-status" class="status-badge">No Adapter Cached</span>
+                            <span id="rag-status" class="status-badge">RAG Corpus Ready</span>
                         </div>
                         <div>
-                            <button class="btn" style="background: #8957e5; padding: 5px 12px; font-size: 12px;" onclick="initializeAndTrainRob()">⚡ Initialize & Train Rob</button>
+                            <button id="boot-btn" class="btn" style="background: #238636; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
                         </div>
                     </div>
                     
                     <div id="chat-history">
-                        <div class="chat-msg chat-rob">🤖 Rob: Ready! Click "Initialize & Train Rob" above to load general training files and boot my kernel.</div>
+                        <div class="chat-msg chat-rob">🤖 Rob: Standby. Click "⚡ Boot Rob Engine" to load WebGPU kernel and start chatting!</div>
                     </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 8px;">
-                        <input type="text" id="chat-input" placeholder="Initialize engine first..." disabled style="margin-bottom: 0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
+                        <input type="text" id="chat-input" placeholder="Boot engine first..." disabled style="margin-bottom: 0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
                         <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 12px; color: #8b949e;">Want to curate knowledge?</span>
+                        <span style="font-size: 12px; color: #8b949e;">Want to export history?</span>
                         <button class="btn" style="background: #21262d; border: 1px solid #30363d; font-size: 12px; padding: 5px 10px;" onclick="downloadChatAsTxt()">📥 Download Chat as TXT</button>
                     </div>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Credentials & Business Training -->
+            <!-- RIGHT COLUMN: Configuration & System Status -->
             <div>
                 <!-- Configuration Panel -->
                 <div class="card">
-                    <h2>⚙️ GitHub Credentials & Settings</h2>
+                    <h2>⚙️ Knowledge Repository Access</h2>
+                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Provide your GitHub PAT to automatically pull and index knowledge from <code>general_training/</code>.</p>
                     <div class="grid-2">
                         <div>
                             <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">GitHub PAT:</label>
@@ -126,21 +125,13 @@
                             <input type="text" id="gh-repo" placeholder="username/repo">
                         </div>
                     </div>
-                    <button class="btn" style="background: #1f6feb; margin-top: 2px; width: 100%;" onclick="saveConfig()">Save Config Locally</button>
-                </div>
-
-                <!-- Knowledge Ingestion Panel (Business Training) -->
-                <div class="card">
-                    <h2>🧠 Private Business Materials</h2>
-                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Paste confidential business criteria or architecture rules below for ephemeral private training passes.</p>
-                    <textarea id="train-data" placeholder="Paste confidential strategies or operational rules here..."></textarea>
-                    <button class="btn" style="width: 100%; margin-top: 5px;" onclick="launchPrivateTraining()">Dispatch Private Training 🚀</button>
+                    <button class="btn" style="background: #1f6feb; margin-top: 2px; width: 100%;" onclick="saveConfig()">Save Config & Sync Corpus</button>
                 </div>
 
                 <!-- Terminal Output Monitor -->
                 <div class="card" style="margin-bottom: 0;">
-                    <h2>📡 Rob's Live Status Terminal</h2>
-                    <div id="log-terminal">System Initialized. Awaiting credentials and initialization command...</div>
+                    <h2>📡 Rob's System Terminal</h2>
+                    <div id="log-terminal">System Ready. Click "⚡ Boot Rob Engine" to launch.</div>
                 </div>
             </div>
         </div>
@@ -152,35 +143,29 @@
         let generalKnowledgeCorpus = [];
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
-        // Load saved config & check adapter status on startup
+        // Load saved settings on load
         document.getElementById('gh-token').value = localStorage.getItem('rob_token') || '';
         document.getElementById('gh-repo').value = localStorage.getItem('rob_repo') || '';
-        checkAdapterCache();
+        
+        // Clear out any old corrupt adapter cache
+        localStorage.removeItem('rob_adapter_weights');
 
         function saveConfig() {
             localStorage.setItem('rob_token', document.getElementById('gh-token').value);
             localStorage.setItem('rob_repo', document.getElementById('gh-repo').value);
-            alert("Credentials saved safely to your local browser storage!");
+            alert("Credentials saved safely! Syncing general_training corpus...");
             loadGeneralTrainingCorpus();
         }
 
-        function checkAdapterCache() {
-            const weights = localStorage.getItem('rob_adapter_weights');
-            const badge = document.getElementById('adapter-status');
-            if (weights) {
-                badge.style.background = "#238636";
-                badge.innerText = `🟢 Personal Adapter Active (${(weights.length * 0.75 / 1024).toFixed(1)} KB cached)`;
-            } else {
-                badge.style.background = "#da3633";
-                badge.innerText = "🔴 No Adapter Cached";
-            }
-        }
-
-        // Client-Side RAG: Fetch all .txt/.md files from general_training/ in the GitHub repository
         async function loadGeneralTrainingCorpus() {
             const token = document.getElementById('gh-token').value;
             const repo = document.getElementById('gh-repo').value;
-            if (!token || !repo) return;
+            const term = document.getElementById('log-terminal');
+            
+            if (!token || !repo) {
+                if (term) term.innerText += "\n⚠️ Repository config missing. Operating on local context only.";
+                return;
+            }
 
             try {
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/general_training`, {
@@ -197,13 +182,17 @@
                         generalKnowledgeCorpus.push({ name: item.name, content: content });
                     }
                 }
-                console.log(`📚 Rob: Loaded ${generalKnowledgeCorpus.length} general training files into client-side RAG corpus.`);
+                const badge = document.getElementById('rag-status');
+                if (badge) {
+                    badge.style.background = "#238636";
+                    badge.innerText = `🟢 RAG Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
+                }
+                if (term) term.innerText += `\n📚 Loaded ${generalKnowledgeCorpus.length} general_training/ files into RAG corpus.`;
             } catch (err) {
                 console.warn("Could not load general training corpus:", err);
             }
         }
 
-        // Search corpus for matching keywords against user prompt
         function searchGeneralTrainingCorpus(userQuery) {
             if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) return "";
             
@@ -216,8 +205,8 @@
                 for (let word of queryWords) {
                     if (lowerContent.includes(word)) score++;
                 }
-                if (score > 0 || queryWords.length === 0) {
-                    matchedSnippets.push(`--- Source File: ${doc.name} ---\n${doc.content}`);
+                if (score > 0) {
+                    matchedSnippets.push(`--- Knowledge File: ${doc.name} ---\n${doc.content}`);
                 }
             }
 
@@ -248,178 +237,27 @@
             URL.revokeObjectURL(url);
         }
 
-        async function initializeAndTrainRob() {
-            const token = document.getElementById('gh-token').value;
-            const repo = document.getElementById('gh-repo').value;
-            const term = document.getElementById('log-terminal');
-
-            if (!token || !repo) {
-                alert("Please configure your GitHub Token and Repository name in the top-right panel first!");
-                return;
-            }
-
-            // Load client-side knowledge corpus on init
-            await loadGeneralTrainingCorpus();
-
-            term.innerText = "🤖 Rob: Triggering automated cloud training (scanning general_training/ folder)...\n";
-
-            try {
-                const dispatchRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/dispatches`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.github+json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        ref: 'main',
-                        inputs: { training_text: "Automated initialization training pass incorporating general_training/ folder." }
-                    })
-                });
-
-                if (dispatchRes.status !== 204) {
-                    const err = await dispatchRes.json();
-                    term.innerText += `🔴 Error dispatching training workflow: ${err.message}\n`;
-                    return;
-                }
-
-                term.innerText += "🟢 Training workflow successfully dispatched! Waiting 15s for runner startup...\n";
-                await new Promise(r => setTimeout(r, 15000));
-                
-                pollWorkflowRunAndBoot(token, repo, term);
-
-            } catch (err) {
-                term.innerText += `🔴 Critical Error: ${err.message}\n`;
-            }
-        }
-
-        async function launchPrivateTraining() {
-            const token = document.getElementById('gh-token').value;
-            const repo = document.getElementById('gh-repo').value;
-            const textData = document.getElementById('train-data').value;
-            const term = document.getElementById('log-terminal');
-
-            if (!token || !repo || !textData) {
-                alert("Please fill in your GitHub Token, Repository name, and private training text!");
-                return;
-            }
-
-            localStorage.setItem('rob_last_training_text', textData);
-            term.innerText = "🤖 Rob: Dispatched private training payload securely...\n";
-
-            const dispatchRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/dispatches`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/vnd.github+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ref: 'main',
-                    inputs: { training_text: textData }
-                })
-            });
-
-            if (dispatchRes.status === 204) {
-                term.innerText += "🟢 Private training workflow triggered successfully!\n";
-                await new Promise(r => setTimeout(r, 15000));
-                pollWorkflowRunOnly(token, repo, term);
-            }
-        }
-
-        async function pollWorkflowRunAndBoot(token, repo, term) {
-            term.innerText += "🔍 Rob: Polling GitHub Actions run status...\n";
-            try {
-                const runsRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/runs?per_page=1`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-                const runsData = await runsRes.json();
-                
-                if (!runsData.workflow_runs || runsData.workflow_runs.length === 0) {
-                    term.innerText += "⚠️ No recent runs found.\n";
-                    return;
-                }
-
-                const latestRun = runsData.workflow_runs[0];
-                term.innerText += `Run Status: [${latestRun.status}] - Conclusion: [${latestRun.conclusion || 'in_progress'}]\n`;
-
-                if (latestRun.status === 'completed') {
-                    if (latestRun.conclusion === 'success') {
-                        term.innerText += "🎉 Training completed successfully! Extracting weights...\n";
-                        await fetchLogsAndExtractWeights(token, repo, latestRun.id, term);
-                        bootWebGPUEngine();
-                    } else {
-                        term.innerText += `🔴 Training failed with conclusion: ${latestRun.conclusion}\n`;
-                    }
-                } else {
-                    term.innerText += "⏳ Training in progress... checking again in 10s.\n";
-                    setTimeout(() => pollWorkflowRunAndBoot(token, repo, term), 10000);
-                }
-            } catch (err) {
-                term.innerText += `⚠️ Polling error: ${err.message}. Retrying...\n`;
-                setTimeout(() => pollWorkflowRunAndBoot(token, repo, term), 10000);
-            }
-        }
-
-        async function pollWorkflowRunOnly(token, repo, term) {
-            try {
-                const runsRes = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/train_adapter.yml/runs?per_page=1`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-                const runsData = await runsRes.json();
-                const latestRun = runsData.workflow_runs[0];
-                if (latestRun.status === 'completed' && latestRun.conclusion === 'success') {
-                    term.innerText += "🎉 Private training completed and cached!\n";
-                    fetchLogsAndExtractWeights(token, repo, latestRun.id, term);
-                } else if (latestRun.status !== 'completed') {
-                    setTimeout(() => pollWorkflowRunOnly(token, repo, term), 10000);
-                }
-            } catch (err) {
-                setTimeout(() => pollWorkflowRunOnly(token, repo, term), 10000);
-            }
-        }
-
-        async function fetchLogsAndExtractWeights(token, repo, runId, term) {
-            try {
-                const jobsRes = await fetch(`https://api.github.com/repos/${repo}/actions/runs/${runId}/jobs`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-                const jobsData = await jobsRes.json();
-                const jobId = jobsData.jobs[0].id;
-                
-                const logRes = await fetch(`https://api.github.com/repos/${repo}/actions/jobs/${jobId}/logs`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-
-                const fullLogText = await logRes.text();
-                const streamMatch = fullLogText.match(/---START_WEIGHT_STREAM---([\s\S]*?)---END_WEIGHT_STREAM---/);
-
-                if (streamMatch && streamMatch[1]) {
-                    const base64Weights = streamMatch[1].replace(/\s/g, '');
-                    localStorage.setItem('rob_adapter_weights', base64Weights);
-                    term.innerText += `⚡ Weights cached (${(base64Weights.length * 0.75 / 1024).toFixed(2)} KB).\n`;
-                    checkAdapterCache();
-                }
-            } catch (err) {
-                term.innerText += `🔴 Log extraction error: ${err.message}\n`;
-            }
-        }
-
-        async function bootWebGPUEngine() {
+        async function bootRobEngine() {
             if (isBooting) return;
             isBooting = true;
 
             const history = document.getElementById('chat-history');
             const inputField = document.getElementById('chat-input');
             const sendBtn = document.getElementById('send-btn');
+            const bootBtn = document.getElementById('boot-btn');
             const term = document.getElementById('log-terminal');
+
+            bootBtn.disabled = true;
+            bootBtn.innerText = "⏳ Booting...";
+
+            await loadGeneralTrainingCorpus();
 
             if (engine) {
                 try { await engine.unload(); } catch(e) {}
                 engine = null;
             }
 
-            term.innerText += "⚡ Booting local WebGPU engine into graphics card...\n";
+            term.innerText = "⚡ Initializing local WebGPU engine into graphics card...\n";
             history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with client-side RAG corpus... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
@@ -429,14 +267,15 @@
                 }
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
-                        console.log(progress.text);
+                        term.innerText = `⚡ WebGPU Loading: ${Math.round(progress.progress * 100)}% - ${progress.text}\n`;
                         if (progress.progress === 1) {
-                            history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & RAG active.</div>`;
+                            history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
                             history.scrollTop = history.scrollHeight;
                             
                             inputField.disabled = false;
                             sendBtn.disabled = false;
                             inputField.placeholder = "Type a message to Rob...";
+                            bootBtn.innerText = "🟢 Engine Running";
                             term.innerText += "🟢 Rob is fully online with active client-side RAG!\n";
                             isBooting = false;
                         }
@@ -445,6 +284,8 @@
             } catch (err) {
                 history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
+                bootBtn.disabled = false;
+                bootBtn.innerText = "⚡ Boot Rob Engine";
                 isBooting = false;
             }
         }
@@ -461,11 +302,10 @@
             history.scrollTop = history.scrollHeight;
 
             const ragContext = searchGeneralTrainingCorpus(userText);
-            const privateMaterials = localStorage.getItem('rob_last_training_text') || "You are Rob, an autonomous sovereign AI assistant.";
             
-            let systemPrompt = `You are Rob, an autonomous sovereign AI. Operational context: ${privateMaterials}`;
+            let systemPrompt = "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. You respond clearly and accurately.";
             if (ragContext) {
-                systemPrompt += `\n\nRetrieved knowledge from general_training/:\n${ragContext}`;
+                systemPrompt += `\n\n[Retrieved Context from general_training/]:\n${ragContext}\n\nUse the above retrieved context to answer the user's question accurately.`;
             }
 
             const messages = [
@@ -496,6 +336,7 @@
             }
         }
 
+        // Auto-sync general training corpus on page load
         loadGeneralTrainingCorpus();
     </script>
 </body>
