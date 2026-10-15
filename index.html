@@ -304,23 +304,9 @@
                 if (!window.webllm || !window.webllm.CreateMLCEngine) {
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
-                
-                // Configure explicit WebGPU KV-cache parameters to prevent buffer unmapping in Firefox
-                const appConfig = {
-                    model_list: [
-                        {
-                            model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-                            model_id: selectedModel,
-                            model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k-webgpu.wasm",
-                            overrides: {
-                                context_window_size: 2048
-                            }
-                        }
-                    ]
-                };
 
+                // Standard WebLLM engine boot without invalid WASM overrides
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
-                    appConfig,
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
                         logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
@@ -361,10 +347,9 @@
 
             const ragContext = searchGeneralTrainingCorpus(userText);
             
-            // Simplified prompt structure to keep system attention sharp
             let promptContent = userText;
             if (ragContext) {
-                promptContent = `Context:\n${ragContext}\n\nQuestion: ${userText}\nAnswer based on the context:`;
+                promptContent = `Context:\n${ragContext}\n\nQuestion: ${userText}\nAnswer strictly based on context:`;
                 logTerm("🧠 Compact RAG prompt constructed.");
             }
 
@@ -384,7 +369,7 @@
                 
                 const completion = await engine.chat.completions.create({
                     messages,
-                    temperature: 0.2,
+                    temperature: 0.1,
                     max_tokens: 128,
                     stream: false
                 });
