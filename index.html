@@ -25,12 +25,12 @@
                     </div>
                     
                     <div id="chat-history">
-                        <div class="chat-msg chat-rob">Rob: Standby. Click "⚡ Boot Rob Engine" to load WebGPU kernel and start chatting!</div>
+                        <div class="chat-msg chat-rob">Rob: Initializing autonomous engine... Please wait.</div>
                     </div>
 
-                    <div style="margin-top: 15px; display: flex; gap: 8px;">
-                        <input type="text" id="chat-input" placeholder="Boot engine first..." disabled style="margin-bottom: 0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
-                        <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
+                    <div style="margin-top: 15px; display: flex; gap: 8px; align-items: flex-end;">
+                        <textarea id="chat-input" rows="3" placeholder="Initializing engine..." disabled style="flex: 1; padding: 10px; border: 1px solid #30363d; border-radius: 4px; font-family: inherit; font-size: 14px; background: #0d1117; color: #c9d1d9; resize: vertical; min-height: 42px; max-height: 200px; box-sizing: border-box; line-height: 1.4;" onkeydown="handleChatKeydown(event)"></textarea>
+                        <button id="send-btn" class="btn" style="background: #003366; padding: 12px 18px; height: 42px;" onclick="sendChatMessage()" disabled>Send 💬</button>
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
                         <span style="font-size: 12px; color: #555;">Want to export history?</span>
@@ -56,7 +56,7 @@
                 <!-- Terminal Output Monitor -->
                 <div class="card" id="terminal-card">
                     <h2>📡 System Terminal</h2>
-                    <div id="log-terminal">System Ready. Click "⚡ Boot Rob Engine" to launch.</div>
+                    <div id="log-terminal">System Ready. Initializing autonomous boot sequence...</div>
                 </div>
             </div>
         </div>

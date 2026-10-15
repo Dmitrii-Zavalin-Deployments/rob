@@ -2,7 +2,14 @@ import { logTerm } from './logger.js';
 import { getEngine, bootRobEngine } from './engine.js';
 import { getCorpus } from './rag.js';
 
-console.log("[Module Loaded] chat.js | Functions: sendChatMessage, downloadChatAsTxt");
+console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKeydown, downloadChatAsTxt");
+
+export function handleChatKeydown(event) {
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        sendChatMessage();
+    }
+}
 
 export async function sendChatMessage() {
     const inputField = document.getElementById('chat-input');
@@ -65,7 +72,7 @@ export async function sendChatMessage() {
         // Auto-recovery handler for Invalid buffer / Buffer unmapped faults
         if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
             logTerm(`⚠️ WebGPU buffer corruption detected. Purging engine state and suggesting cache wipe...`);
-            replyDiv.innerText = "Rob Error: WebGPU buffer corrupted. Please click '🧹 Clear Local Memory' to clear old cache files, then reboot.";
+            replyDiv.innerText = "Rob Error: WebGPU buffer corrupted. Please click '🧹 Clear Local Memory & Reload' to clear old cache files, then reboot.";
         } else {
             replyDiv.innerText = "Rob Error: " + err.message;
         }
