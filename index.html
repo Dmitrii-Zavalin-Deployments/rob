@@ -29,7 +29,7 @@
         .card { background: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }
         h2 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-top: 0; margin-bottom: 12px; }
         
-        input[type="text"], input[type="password"] { 
+        input[type="text"] { 
             width: 100%; 
             background: #0d1117; 
             color: #c9d1d9; 
@@ -63,7 +63,6 @@
         .chat-user { background: #1f6feb; color: white; align-self: flex-end; }
         .chat-rob { background: #21262d; border: 1px solid #30363d; align-self: flex-start; color: #c9d1d9; }
         
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .status-badge { display: inline-block; padding: 4px 8px; font-size: 11px; border-radius: 4px; font-weight: bold; background: #8957e5; color: white; margin-bottom: 10px; }
     </style>
     <!-- Import official local module tree -->
@@ -77,7 +76,7 @@
         <div class="header-block">
             <div class="doc-class">Autonomous Architecture Node v2.0</div>
             <h1>🤖 Meet Rob: Sovereign Edge AI Engine</h1>
-            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Pure WebGPU Local Execution + Dynamic Client-Side RAG.</p>
+            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Pure WebGPU Local Execution + Dynamic Client-Side RAG (Token-Free).</p>
         </div>
 
         <div class="dashboard-grid">
@@ -87,7 +86,7 @@
                     <h2>💬 Talk to Rob (Edge Kernel + Client-Side RAG)</h2>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                         <div>
-                            <span id="rag-status" class="status-badge">RAG Corpus Ready</span>
+                            <span id="rag-status" class="status-badge">Scanning Corpus...</span>
                         </div>
                         <div>
                             <button id="boot-btn" class="btn" style="background: #238636; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
@@ -109,23 +108,13 @@
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Configuration & System Status -->
+            <!-- RIGHT COLUMN: System Status & Corpus Management -->
             <div>
-                <!-- Configuration Panel -->
+                <!-- Status Panel -->
                 <div class="card">
-                    <h2>⚙️ Knowledge Repository Access</h2>
-                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Provide your GitHub PAT to automatically pull and index knowledge from <code>general_training/</code>.</p>
-                    <div class="grid-2">
-                        <div>
-                            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">GitHub PAT:</label>
-                            <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxx">
-                        </div>
-                        <div>
-                            <label style="font-size:12px; color:#8b949e; display:block; margin-bottom:4px;">Repository:</label>
-                            <input type="text" id="gh-repo" placeholder="username/repo">
-                        </div>
-                    </div>
-                    <button class="btn" style="background: #1f6feb; margin-top: 2px; width: 100%;" onclick="saveConfig()">Save Config & Sync Corpus</button>
+                    <h2>📁 Sovereign Knowledge Base</h2>
+                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Automatically indexes all text files in your local <code>general_training/</code> directory with zero configuration.</p>
+                    <button class="btn" style="background: #1f6feb; width: 100%;" onclick="loadGeneralTrainingCorpus()">🔄 Resync Training Corpus</button>
                 </div>
 
                 <!-- Terminal Output Monitor -->
@@ -143,53 +132,41 @@
         let generalKnowledgeCorpus = [];
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
-        // Load saved settings on load
-        document.getElementById('gh-token').value = localStorage.getItem('rob_token') || '';
-        document.getElementById('gh-repo').value = localStorage.getItem('rob_repo') || '';
-        
-        // Clear out any old corrupt adapter cache
+        // Clear out legacy adapter cache on startup
         localStorage.removeItem('rob_adapter_weights');
 
-        function saveConfig() {
-            localStorage.setItem('rob_token', document.getElementById('gh-token').value);
-            localStorage.setItem('rob_repo', document.getElementById('gh-repo').value);
-            alert("Credentials saved safely! Syncing general_training corpus...");
-            loadGeneralTrainingCorpus();
-        }
-
+        // Static Client-Side RAG Corpus Loader (Token-free via relative fetch)
         async function loadGeneralTrainingCorpus() {
-            const token = document.getElementById('gh-token').value;
-            const repo = document.getElementById('gh-repo').value;
             const term = document.getElementById('log-terminal');
-            
-            if (!token || !repo) {
-                if (term) term.innerText += "\n⚠️ Repository config missing. Operating on local context only.";
-                return;
-            }
+            const badge = document.getElementById('rag-status');
 
             try {
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/general_training`, {
-                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-                });
-                if (!res.ok) return;
-                const items = await res.json();
+                // Fetch static manifest of training files
+                const manifestRes = await fetch('./general_training/manifest.json');
+                if (!manifestRes.ok) throw new Error("manifest.json not found in general_training/");
+                const filenames = await manifestRes.json();
                 
                 generalKnowledgeCorpus = [];
-                for (let item of items) {
-                    if (item.type === 'file' && (item.name.endsWith('.txt') || item.name.endsWith('.md'))) {
-                        const fileRes = await fetch(item.download_url);
+                for (let filename of filenames) {
+                    const fileRes = await fetch(`./general_training/${filename}`);
+                    if (fileRes.ok) {
                         const content = await fileRes.text();
-                        generalKnowledgeCorpus.push({ name: item.name, content: content });
+                        generalKnowledgeCorpus.push({ name: filename, content: content });
                     }
                 }
-                const badge = document.getElementById('rag-status');
+
                 if (badge) {
                     badge.style.background = "#238636";
                     badge.innerText = `🟢 RAG Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
                 }
-                if (term) term.innerText += `\n📚 Loaded ${generalKnowledgeCorpus.length} general_training/ files into RAG corpus.`;
+                if (term) term.innerText += `\n📚 Loaded ${generalKnowledgeCorpus.length} files from general_training/ corpus.`;
             } catch (err) {
-                console.warn("Could not load general training corpus:", err);
+                console.warn("Could not load knowledge corpus via manifest:", err);
+                if (badge) {
+                    badge.style.background = "#d29922";
+                    badge.innerText = `⚠️ Corpus Manifest Missing`;
+                }
+                if (term) term.innerText += `\n⚠️ Create manifest.json in general_training/ listing your .txt files.`;
             }
         }
 
@@ -321,6 +298,7 @@
             try {
                 const completion = await engine.chat.completions.create({
                     messages,
+                    temperature: 0.2,
                     stream: true
                 });
 
