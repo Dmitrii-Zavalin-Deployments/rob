@@ -47,7 +47,9 @@ export async function bootRobEngine() {
             initProgressCallback: (progress) => {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
-                if (progress.progress === 1) {
+                
+                // Only unlock UI when WebGPU shader compilation & memory mapping are 100% complete
+                if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
                     if (history) {
                         history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
                         history.scrollTop = history.scrollHeight;
