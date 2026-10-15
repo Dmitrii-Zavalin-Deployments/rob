@@ -79,14 +79,14 @@
         <div class="header-block">
             <div class="doc-class">Autonomous Architecture Node v2.0</div>
             <h1>🤖 Meet Rob: Sovereign Hybrid AI Hub</h1>
-            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Cloud-trained, locally cached, 100% independent edge intelligence.</p>
+            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Cloud-trained, locally cached, client-side RAG enabled.</p>
         </div>
 
         <div class="dashboard-grid">
             <!-- LEFT COLUMN: Chat Interface -->
             <div>
                 <div class="card" style="height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-                    <h2>💬 Talk to Rob (Edge Kernel + Personal Cache)</h2>
+                    <h2>💬 Talk to Rob (Edge Kernel + Client-Side RAG)</h2>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
                         <div>
                             <span id="adapter-status" class="status-badge">No Adapter Cached</span>
@@ -97,7 +97,7 @@
                     </div>
                     
                     <div id="chat-history">
-                        <div class="chat-msg chat-rob">🤖 Rob: Ready! Click "Initialize & Train Rob" above to compile general training files and load my kernel.</div>
+                        <div class="chat-msg chat-rob">🤖 Rob: Ready! Click "Initialize & Train Rob" above to load general training files and boot my kernel.</div>
                     </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 8px;">
@@ -132,7 +132,7 @@
                 <!-- Knowledge Ingestion Panel (Business Training) -->
                 <div class="card">
                     <h2>🧠 Private Business Materials</h2>
-                    <p style="font-size:13px; color:#8b949e; margin-top:0;"></p>Paste confidential business criteria or architecture rules below for ephemeral private training passes.</p>
+                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Paste confidential business criteria or architecture rules below for ephemeral private training passes.</p>
                     <textarea id="train-data" placeholder="Paste confidential strategies or operational rules here..."></textarea>
                     <button class="btn" style="width: 100%; margin-top: 5px;" onclick="launchPrivateTraining()">Dispatch Private Training 🚀</button>
                 </div>
@@ -148,6 +148,7 @@
 
     <script>
         let engine = null;
+        let generalKnowledgeCorpus = [];
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
         // Load saved config & check adapter status on startup
@@ -159,6 +160,7 @@
             localStorage.setItem('rob_token', document.getElementById('gh-token').value);
             localStorage.setItem('rob_repo', document.getElementById('gh-repo').value);
             alert("Credentials saved safely to your local browser storage!");
+            loadGeneralTrainingCorpus();
         }
 
         function checkAdapterCache() {
@@ -173,7 +175,54 @@
             }
         }
 
-        // Export chat history as a .txt file for manual curation into general_training/
+        // Client-Side RAG: Fetch all .txt/.md files from general_training/ in the GitHub repository
+        async function loadGeneralTrainingCorpus() {
+            const token = document.getElementById('gh-token').value;
+            const repo = document.getElementById('gh-repo').value;
+            if (!token || !repo) return;
+
+            try {
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/general_training`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+                });
+                if (!res.ok) return;
+                const items = await res.json();
+                
+                generalKnowledgeCorpus = [];
+                for (let item of items) {
+                    if (item.type === 'file' && (item.name.endsWith('.txt') || item.name.endsWith('.md'))) {
+                        const fileRes = await fetch(item.download_url);
+                        const content = await fileRes.text();
+                        generalKnowledgeCorpus.push({ name: item.name, content: content });
+                    }
+                }
+                console.log(`📚 Rob: Loaded ${generalKnowledgeCorpus.length} general training files into client-side RAG corpus.`);
+            } catch (err) {
+                console.warn("Could not load general training corpus:", err);
+            }
+        }
+
+        // Search corpus for matching keywords against user prompt
+        function searchGeneralTrainingCorpus(userQuery) {
+            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) return "";
+            
+            const queryWords = userQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+            let matchedSnippets = [];
+
+            for (let doc of generalKnowledgeCorpus) {
+                let score = 0;
+                const lowerContent = doc.content.toLowerCase();
+                for (let word of queryWords) {
+                    if (lowerContent.includes(word)) score++;
+                }
+                if (score > 0 || queryWords.length === 0) {
+                    matchedSnippets.push(`--- Source File: ${doc.name} ---\n${doc.content}`);
+                }
+            }
+
+            return matchedSnippets.length > 0 ? matchedSnippets.join("\n\n") : "";
+        }
+
         function downloadChatAsTxt() {
             const historyDiv = document.getElementById('chat-history');
             const msgs = historyDiv.getElementsByClassName('chat-msg');
@@ -198,7 +247,6 @@
             URL.revokeObjectURL(url);
         }
 
-        // Master function: Triggers GitHub Actions training (ingesting general_training/ folder), fetches weights, then boots WebGPU
         async function initializeAndTrainRob() {
             const token = document.getElementById('gh-token').value;
             const repo = document.getElementById('gh-repo').value;
@@ -208,6 +256,9 @@
                 alert("Please configure your GitHub Token and Repository name in the top-right panel first!");
                 return;
             }
+
+            // Load client-side knowledge corpus on init
+            await loadGeneralTrainingCorpus();
 
             term.innerText = "🤖 Rob: Triggering automated cloud training (scanning general_training/ folder)...\n";
 
@@ -295,7 +346,6 @@
                     if (latestRun.conclusion === 'success') {
                         term.innerText += "🎉 Training completed successfully! Extracting weights...\n";
                         await fetchLogsAndExtractWeights(token, repo, latestRun.id, term);
-                        // Now boot the WebGPU engine
                         bootWebGPUEngine();
                     } else {
                         term.innerText += `🔴 Training failed with conclusion: ${latestRun.conclusion}\n`;
@@ -361,7 +411,7 @@
             const term = document.getElementById('log-terminal');
 
             term.innerText += "⚡ Booting local WebGPU engine into graphics card...\n";
-            history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with latest compiled general knowledge... Please wait.</div>`;
+            history.innerHTML += `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with client-side RAG corpus... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
             try {
@@ -372,13 +422,13 @@
                     initProgressCallback: (progress) => {
                         console.log(progress.text);
                         if (progress.progress === 1) {
-                            history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence active.</div>`;
+                            history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & RAG active.</div>`;
                             history.scrollTop = history.scrollHeight;
                             
                             inputField.disabled = false;
                             sendBtn.disabled = false;
                             inputField.placeholder = "Type a message to Rob...";
-                            term.innerText += "🟢 Rob is fully online and ready for local inference!\n";
+                            term.innerText += "🟢 Rob is fully online with active client-side RAG!\n";
                         }
                     }
                 });
@@ -399,10 +449,17 @@
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
+            // Retrieve matching context from general_training/ txt files via client-side RAG
+            const ragContext = searchGeneralTrainingCorpus(userText);
             const privateMaterials = localStorage.getItem('rob_last_training_text') || "You are Rob, an autonomous sovereign AI assistant.";
             
+            let systemPrompt = `You are Rob, an autonomous sovereign AI. Operational context: ${privateMaterials}`;
+            if (ragContext) {
+                systemPrompt += `\n\nRetrieved knowledge from general_training/:\n${ragContext}`;
+            }
+
             const messages = [
-                { role: "system", content: `You are Rob, an autonomous sovereign AI. Operational context: ${privateMaterials}` },
+                { role: "system", content: systemPrompt },
                 { role: "user", content: userText }
             ];
 
@@ -428,6 +485,9 @@
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
             }
         }
+
+        // Pre-load corpus on startup if config exists
+        loadGeneralTrainingCorpus();
     </script>
 </body>
 </html>
