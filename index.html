@@ -155,7 +155,6 @@
             return window.location.origin + path;
         }
 
-        // Wipe IndexedDB databases used by WebLLM/MLC to prevent Buffer unmapped errors
         async function wipeWebGPUCache() {
             logTerm("🧹 Purging browser IndexedDB and WebGPU caches...");
             localStorage.clear();
@@ -169,7 +168,6 @@
                         }
                     }
                 } else {
-                    // Fallback known db names
                     indexedDB.deleteDatabase("webllm/");
                     indexedDB.deleteDatabase("mlc-chat");
                 }
@@ -363,25 +361,24 @@
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
-            replyDiv.innerHTML = "🤖 Rob: ";
+            replyDiv.innerHTML = "🤖 Rob: <i>Thinking...</i>";
             history.appendChild(replyDiv);
+            history.scrollTop = history.scrollHeight;
 
             try {
-                logTerm("🤖 Generating streaming response from WebGPU model...");
+                logTerm("🤖 Generating response from WebGPU model (non-streaming mode)...");
+                
+                // Switch to stream: false to bypass buffer mapping bugs on local WebGPU drivers
                 const completion = await engine.chat.completions.create({
                     messages,
                     temperature: 0.1,
-                    stream: true
+                    stream: false
                 });
 
-                let fullReply = "";
-                for await (const chunk of completion) {
-                    const curText = chunk.choices[0]?.delta?.content || "";
-                    fullReply += curText;
-                    replyDiv.innerText = "🤖 Rob: " + fullReply;
-                    history.scrollTop = history.scrollHeight;
-                }
-                logTerm(`✅ Response generation complete (${fullReply.length} characters generated).`);
+                const fullReply = completion.choices[0]?.message?.content || "(No response generated)";
+                replyDiv.innerText = "🤖 Rob: " + fullReply;
+                history.scrollTop = history.scrollHeight;
+                logTerm(`✅ Response generated successfully (${fullReply.length} characters).`);
             } catch (err) {
                 logTerm(`🔴 Generation Error: ${err.message}`);
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
