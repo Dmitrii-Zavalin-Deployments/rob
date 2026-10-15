@@ -278,7 +278,6 @@
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
 
-                // Standard clean engine creation using WebLLM's built-in model registry
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
@@ -327,12 +326,19 @@
                 assembledTxt += `\n[File: ${doc.name}]\n${doc.content}\n`;
             }
 
-            const systemPrompt = `You are Rob, an autonomous sovereign AI created by Dmitrii Zavalin. Answer questions accurately using only the provided reference knowledge base.\n\n--- REFERENCE KNOWLEDGE BASE ---\n${assembledTxt}`;
-            const userPrompt = `Based on the reference knowledge base above, answer this question concisely: ${userText}`;
+            // Standard OpenAI message array format (WebLLM natively applies correct template formatting)
+            const messages = [
+                { 
+                    role: "system", 
+                    content: `You are Rob, an autonomous sovereign AI created by Dmitrii Zavalin. Answer questions accurately using only the provided reference knowledge base.\n\n--- REFERENCE KNOWLEDGE BASE ---\n${assembledTxt}` 
+                },
+                { 
+                    role: "user", 
+                    content: userText 
+                }
+            ];
 
-            const formattedChatML = `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userPrompt}<|im_end|>\n<|im_start|>assistant\n`;
-
-            logTerm(`📝 ChatML prompt assembled (${formattedChatML.length} chars). Executing tensor completion...`);
+            logTerm(`📝 OpenAI-style messages payload assembled. Executing tensor completion...`);
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
@@ -342,16 +348,13 @@
 
             try {
                 const completion = await engine.chat.completions.create({
-                    messages: [
-                        { role: "user", content: formattedChatML }
-                    ],
+                    messages,
                     temperature: 0.1,
                     max_tokens: 128,
                     stream: false
                 });
 
-                let fullReply = completion.choices[0]?.message?.content || "(No response generated)";
-                fullReply = fullReply.replace(/<\|im_end\|>/g, "").trim();
+                const fullReply = completion.choices[0]?.message?.content || "(No response generated)";
 
                 replyDiv.innerText = "🤖 Rob: " + fullReply;
                 history.scrollTop = history.scrollHeight;
