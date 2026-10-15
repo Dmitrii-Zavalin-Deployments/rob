@@ -189,9 +189,7 @@
                 logTerm(`🔍 Fetching manifest from: ${manifestUrl}`);
 
                 const manifestRes = await fetch(manifestUrl);
-                if (!manifestRes.ok) {
-                    throw new Error(`manifest.json HTTP status ${manifestRes.status}`);
-                }
+                if (!manifestRes.ok) throw new Error(`manifest.json HTTP status ${manifestRes.status}`);
                 
                 const filenames = await manifestRes.json();
                 logTerm(`📄 Manifest parsed. Found ${filenames.length} file entries.`);
@@ -223,49 +221,6 @@
                     badge.innerText = `⚠️ Corpus Sync Failed`;
                 }
             }
-        }
-
-        function searchGeneralTrainingCorpus(userQuery) {
-            logTerm(`🔎 Aggregating general_training corpus for query: "${userQuery}"`);
-            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
-                logTerm(`⚠️ Corpus is empty. No files to aggregate.`);
-                return "";
-            }
-            
-            // Aggregate ALL loaded training documents into a single master context string
-            let aggregatedContext = "";
-            for (let doc of generalKnowledgeCorpus) {
-                logTerm(`📄 Appending document "${doc.name}" (${doc.content.length} chars) into master RAG string.`);
-                aggregatedContext += `\n--- Source File: ${doc.name} ---\n${doc.content}\n`;
-            }
-
-            logTerm(`📦 Master aggregated training string assembled (${aggregatedContext.length} total characters).`);
-            return aggregatedContext;
-        }
-
-        function downloadChatAsTxt() {
-            const historyDiv = document.getElementById('chat-history');
-            const msgs = historyDiv.getElementsByClassName('chat-msg');
-            if (msgs.length <= 1) {
-                alert("No chat conversation to export yet!");
-                return;
-            }
-
-            let chatText = "--- Rob Sovereign AI Chat Export ---\nGenerated: " + new Date().toISOString() + "\n\n";
-            for (let msg of msgs) {
-                chatText += msg.innerText + "\n\n";
-            }
-
-            const blob = new Blob([chatText], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `rob_chat_export_${Date.now()}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            logTerm("📥 Chat conversation successfully exported as TXT.");
         }
 
         async function bootRobEngine() {
@@ -316,8 +271,12 @@
                     }
                 });
             } catch (err) {
-                logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
-                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
+                let errMsg = err.message;
+                if (errMsg.includes("maxComputeWorkgroupStorageSize")) {
+                    errMsg = "Mobile GPU Limitation: Your phone GPU workgroup storage limit (16KB) is below model requirement (32KB). Sovereign WebGPU execution requires a desktop or flagship mobile GPU.";
+                }
+                logTerm(`🔴 CRITICAL WebGPU Error: ${errMsg}`);
+                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${errMsg}</div>`;
                 history.scrollTop = history.scrollHeight;
                 bootBtn.disabled = false;
                 bootBtn.innerText = "⚡ Boot Rob Engine";
@@ -337,23 +296,22 @@
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
-            // Step 1: Get aggregated training text
-            const aggregatedCorpus = searchGeneralTrainingCorpus(userText);
-            
-            // Step 2: Combine corpus and user question into a single clean string prompt
+            let aggregatedCorpus = "";
+            for (let doc of generalKnowledgeCorpus) {
+                aggregatedCorpus += `\n--- Source File: ${doc.name} ---\n${doc.content}\n`;
+            }
+
             let finalMasterPrompt = userText;
             if (aggregatedCorpus) {
                 finalMasterPrompt = `Use the following reference documents to answer the user's question accurately:\n${aggregatedCorpus}\n\nUser Question: ${userText}\nAnswer:`;
             }
 
-            logTerm(`📝 Final Master Prompt assembled. Total length: ${finalMasterPrompt.length} characters.`);
+            logTerm(`📝 Final Master Prompt assembled (${finalMasterPrompt.length} chars). Calling WebGPU inference...`);
 
             const messages = [
                 { role: "system", content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Answer concisely." },
                 { role: "user", content: finalMasterPrompt }
             ];
-
-            logTerm(`📤 Serialized messages payload structure: ${JSON.stringify(messages, null, 2)}`);
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
@@ -362,22 +320,18 @@
             history.scrollTop = history.scrollHeight;
 
             try {
-                logTerm("🤖 Calling engine.chat.completions.create() on WebGPU tensor engine...");
-                
                 const completion = await engine.chat.completions.create({
                     messages,
                     temperature: 0.1,
                     max_tokens: 128
                 });
 
-                logTerm("✅ engine.chat.completions.create() returned successfully!");
                 const fullReply = completion.choices[0]?.message?.content || "(No response generated)";
                 replyDiv.innerText = "🤖 Rob: " + fullReply;
                 history.scrollTop = history.scrollHeight;
-                logTerm(`✅ Response rendered successfully (${fullReply.length} characters).`);
+                logTerm(`✅ Response generated successfully (${fullReply.length} characters).`);
             } catch (err) {
                 logTerm(`🔴 WebGPU Buffer/Execution Error: ${err.message}`);
-                console.error("Full WebGPU Error Object:", err);
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
             }
         }
