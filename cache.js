@@ -1,9 +1,9 @@
 import { logTerm } from './logger.js';
 
-console.log("[Module Loaded] cache.js | Functions: wipeWebGPUCache");
+console.log("[Module Loaded] cache.js | Functions: purgeStorageOnly, wipeWebGPUCache");
 
-export async function wipeWebGPUCache() {
-    logTerm("🧹 [cache.js -> wipeWebGPUCache] Initiating total browser storage purge...");
+export async function purgeStorageOnly() {
+    logTerm("🧹 [cache.js -> purgeStorageOnly] Executing automatic pre-boot storage cleanup...");
     
     // 1. Clear LocalStorage and SessionStorage
     try {
@@ -14,7 +14,7 @@ export async function wipeWebGPUCache() {
         logTerm(`⚠️ Error clearing Web Storage: ${e.message}`);
     }
 
-    // 2. Clear Cache Storage (webllm/config, webllm/model, webllm/wasm)
+    // 2. Clear Cache Storage
     try {
         if ('caches' in window) {
             const cacheKeys = await caches.keys();
@@ -38,7 +38,6 @@ export async function wipeWebGPUCache() {
                 }
             }
         } else {
-            // Fallback for browsers that don't support indexedDB.databases()
             indexedDB.deleteDatabase("webllm/");
             indexedDB.deleteDatabase("mlc-chat");
             indexedDB.deleteDatabase("webllm/model");
@@ -48,6 +47,11 @@ export async function wipeWebGPUCache() {
         logTerm(`⚠️ Error wiping IndexedDB: ${e.message}`);
     }
 
-    logTerm("✅ All site storage successfully purged! Reloading page...");
+    logTerm("✅ Storage cleanup complete.");
+}
+
+export async function wipeWebGPUCache() {
+    await purgeStorageOnly();
+    logTerm("🔄 Reloading page...");
     setTimeout(() => window.location.reload(), 1200);
 }

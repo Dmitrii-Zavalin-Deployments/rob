@@ -15,10 +15,13 @@ export async function bootRobEngine() {
     const history = document.getElementById('chat-history');
     const inputField = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
-    const bootBtn = document.getElementById('boot-btn');
+    const statusBadge = document.getElementById('engine-status-badge');
 
-    bootBtn.disabled = true;
-    bootBtn.innerText = "⏳ Booting...";
+    if (statusBadge) {
+        statusBadge.className = "status-badge";
+        statusBadge.style.background = "#003366";
+        statusBadge.innerText = "⏳ Engine Booting...";
+    }
 
     logTerm("🚀 [engine.js -> bootRobEngine] Boot sequence initiated...");
     await loadGeneralTrainingCorpus();
@@ -30,8 +33,10 @@ export async function bootRobEngine() {
     }
 
     logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
-    history.innerHTML = `<div class="chat-msg chat-rob">Rob: Initializing local WebGPU engine... Please wait.</div>`;
-    history.scrollTop = history.scrollHeight;
+    if (history) {
+        history.innerHTML = `<div class="chat-msg chat-rob">Rob: Initializing local WebGPU engine... Please wait.</div>`;
+        history.scrollTop = history.scrollHeight;
+    }
     
     try {
         if (!webllm || !webllm.CreateMLCEngine) {
@@ -43,13 +48,21 @@ export async function bootRobEngine() {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
                 if (progress.progress === 1) {
-                    history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
-                    history.scrollTop = history.scrollHeight;
+                    if (history) {
+                        history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
+                        history.scrollTop = history.scrollHeight;
+                    }
                     
-                    inputField.disabled = false;
-                    sendBtn.disabled = false;
-                    inputField.placeholder = "Type a message to Rob...";
-                    bootBtn.innerText = "🟢 Engine Running";
+                    if (inputField) {
+                        inputField.disabled = false;
+                        inputField.placeholder = "Type a message to Rob...";
+                    }
+                    if (sendBtn) sendBtn.disabled = false;
+
+                    if (statusBadge) {
+                        statusBadge.style.background = "#1b7c3d";
+                        statusBadge.innerText = "🟢 Engine Running";
+                    }
                     logTerm("🟢 Rob is fully online with active client-side RAG!");
                     isBooting = false;
                 }
@@ -57,10 +70,14 @@ export async function bootRobEngine() {
         });
     } catch (err) {
         logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
-        history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">🔴 WebGPU Error: ${err.message}.</div>`;
-        history.scrollTop = history.scrollHeight;
-        bootBtn.disabled = false;
-        bootBtn.innerText = "⚡ Boot Rob Engine";
+        if (history) {
+            history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">🔴 WebGPU Error: ${err.message}.</div>`;
+            history.scrollTop = history.scrollHeight;
+        }
+        if (statusBadge) {
+            statusBadge.style.background = "#a61c1c";
+            statusBadge.innerText = "🔴 Boot Failed";
+        }
         isBooting = false;
     }
 }

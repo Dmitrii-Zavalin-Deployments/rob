@@ -1,16 +1,28 @@
 import { logTerm } from './logger.js';
-import { wipeWebGPUCache } from './cache.js';
-import { loadGeneralTrainingCorpus } from './rag.js';
+import { purgeStorageOnly, wipeWebGPUCache } from './cache.js';
 import { bootRobEngine } from './engine.js';
 import { sendChatMessage, downloadChatAsTxt } from './chat.js';
 
-console.log("[Module Loaded] app.js | Initializing Global Event Bindings");
+console.log("[Module Loaded] app.js | Initializing Automatic Boot Sequence");
 
-window.bootRobEngine = bootRobEngine;
 window.sendChatMessage = sendChatMessage;
-window.loadGeneralTrainingCorpus = loadGeneralTrainingCorpus;
 window.wipeWebGPUCache = wipeWebGPUCache;
 window.downloadChatAsTxt = downloadChatAsTxt;
 
-loadGeneralTrainingCorpus();
-logTerm("🟢 [app.js] Application successfully initialized and ready for boot.");
+// Automatic sequential boot sequence on page load
+async function autoBootSequence() {
+    logTerm("🏁 [app.js -> autoBootSequence] Starting automated startup flow...");
+    
+    // Step 1: Purge browser storage & caches
+    await purgeStorageOnly();
+    
+    // Step 2: Boot WebGPU Engine (which loads RAG corpus and initializes WebLLM)
+    await bootRobEngine();
+}
+
+// Trigger automatically when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoBootSequence);
+} else {
+    autoBootSequence();
+}
