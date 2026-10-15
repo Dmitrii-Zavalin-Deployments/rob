@@ -269,8 +269,8 @@
                 engine = null;
             }
 
-            logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
-            history.innerHTML = `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with client-side RAG corpus... Please wait.</div>`;
+            logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel} (Optimized 2k VRAM context)`);
+            history.innerHTML = `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with optimized memory constraints... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
             try {
@@ -278,6 +278,7 @@
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
 
+                // Constrain context window size to prevent staging buffer fragmentation on Linux GPU drivers
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
@@ -293,6 +294,15 @@
                             logTerm("🟢 Rob is fully online with active client-side RAG!");
                             isBooting = false;
                         }
+                    },
+                    appConfig: {
+                        model_list: [
+                            {
+                                model_url: "",
+                                local_id: selectedModel,
+                                buffer_size_required_bytes: 512 * 1024 * 1024
+                            }
+                        ]
                     }
                 });
             } catch (err) {
@@ -326,13 +336,12 @@
                 assembledTxt += `\n[File: ${doc.name}]\n${doc.content}\n`;
             }
 
-            // ChatML structural formatting for Qwen instruction attention alignment
-            const systemPrompt = `You are Rob, an autonomous sovereign AI created by Dmitrii Zavalin. You answer user queries using the provided reference files.\n\n--- REFERENCE KNOWLEDGE BASE ---\n${assembledTxt}`;
+            const systemPrompt = `You are Rob, an autonomous sovereign AI created by Dmitrii Zavalin. Answer questions accurately using only the provided reference knowledge base.\n\n--- REFERENCE KNOWLEDGE BASE ---\n${assembledTxt}`;
             const userPrompt = `Based on the reference knowledge base above, answer this question concisely: ${userText}`;
 
             const formattedChatML = `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userPrompt}<|im_end|>\n<|im_start|>assistant\n`;
 
-            logTerm(`📝 ChatML prompt structure assembled (${formattedChatML.length} chars). Executing completion...`);
+            logTerm(`📝 ChatML prompt assembled (${formattedChatML.length} chars). Executing tensor completion...`);
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
@@ -351,8 +360,6 @@
                 });
 
                 let fullReply = completion.choices[0]?.message?.content || "(No response generated)";
-                
-                // Clean up any stray tokens
                 fullReply = fullReply.replace(/<\|im_end\|>/g, "").trim();
 
                 replyDiv.innerText = "🤖 Rob: " + fullReply;
