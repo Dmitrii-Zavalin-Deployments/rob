@@ -111,6 +111,7 @@
             padding: 15px; 
             font-family: monospace; 
             flex: 1;
+            height: 260px;
             overflow-y: auto; 
             border-radius: 4px; 
             font-size: 13px; 
@@ -124,7 +125,7 @@
             background: #fdfdfd; 
             color: #1a1a1a; 
             flex: 1;
-            min-height: 420px;
+            height: 420px;
             overflow-y: auto;
             padding: 15px;
             display: flex; 
@@ -160,7 +161,9 @@
                 <div class="card left-column-card">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
                         <h2 style="margin: 0;">💬 Talk to Rob</h2>
-                        <button id="boot-btn" class="btn" style="background: #003366; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
+                        <div>
+                            <button id="boot-btn" class="btn" style="background: #003366; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
+                        </div>
                     </div>
                     
                     <div id="chat-history">
@@ -227,7 +230,7 @@
         }
 
         async function wipeWebGPUCache() {
-            logTerm("🧹 Purging local memory and cache...");
+            logTerm("🧹 Purging browser IndexedDB and WebGPU caches...");
             localStorage.clear();
             try {
                 if (window.indexedDB && indexedDB.databases) {
@@ -235,24 +238,24 @@
                     for (let db of dbs) {
                         if (db.name) {
                             indexedDB.deleteDatabase(db.name);
-                            logTerm(`🗑️ Deleted local database: ${db.name}`);
+                            logTerm(`🗑️ Deleted IndexedDB: ${db.name}`);
                         }
                     }
                 } else {
                     indexedDB.deleteDatabase("webllm/");
                     indexedDB.deleteDatabase("mlc-chat");
                 }
-                logTerm("✅ Local memory cleared! Reloading page...");
+                logTerm("✅ GPU cache successfully wiped! Reloading page...");
                 setTimeout(() => window.location.reload(), 1200);
             } catch (err) {
-                logTerm(`⚠️ Error clearing memory: ${err.message}`);
+                logTerm(`⚠️ Error wiping cache: ${err.message}`);
                 window.location.reload();
             }
         }
 
         async function loadGeneralTrainingCorpus() {
             const badge = document.getElementById('rag-status');
-            logTerm("🤖 Initiating knowledge base scan...");
+            logTerm("🤖 Initiating scan of general_training/ corpus...");
 
             try {
                 const basePath = getBasePath();
@@ -268,7 +271,7 @@
                 generalKnowledgeCorpus = [];
                 for (let filename of filenames) {
                     const fileUrl = `${basePath}general_training/${filename}?v=${Date.now()}`;
-                    logTerm(`📥 Loading reference document: ${filename}`);
+                    logTerm(`📥 Downloading knowledge file: ${filename}`);
                     
                     const fileRes = await fetch(fileUrl);
                     if (fileRes.ok) {
@@ -282,14 +285,14 @@
 
                 if (badge) {
                     badge.style.background = "#003366";
-                    badge.innerText = `🟢 Knowledge Base Active (${generalKnowledgeCorpus.length} Document Loaded)`;
+                    badge.innerText = `🟢 Knowledge Base Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
                 }
-                logTerm(`🎉 Knowledge base synchronization complete.`);
+                logTerm(`🎉 Knowledge corpus synchronization complete.`);
             } catch (err) {
-                logTerm(`🔴 Knowledge Base Sync Error: ${err.message}`);
+                logTerm(`🔴 CRITICAL RAG Error: ${err.message}`);
                 if (badge) {
                     badge.style.background = "#b7791f";
-                    badge.innerText = `⚠️ Knowledge Sync Failed`;
+                    badge.innerText = `⚠️ Corpus Sync Failed`;
                 }
             }
         }
@@ -316,7 +319,7 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            logTerm("📥 Conversation successfully exported as TXT.");
+            logTerm("📥 Chat conversation successfully exported as TXT.");
         }
 
         async function bootRobEngine() {
@@ -331,17 +334,17 @@
             bootBtn.disabled = true;
             bootBtn.innerText = "⏳ Booting...";
 
-            logTerm("🚀 Engine boot sequence initiated...");
+            logTerm("🚀 Boot sequence initiated...");
             await loadGeneralTrainingCorpus();
 
             if (engine) {
-                logTerm("🧹 Unloading previous engine instance...");
+                logTerm("🧹 Unloading previous WebGPU engine instance...");
                 try { await engine.unload(); } catch(e) {}
                 engine = null;
             }
 
-            logTerm(`⚡ Initializing local execution kernel for model: ${selectedModel}`);
-            history.innerHTML = `<div class="chat-msg chat-rob">Rob: Initializing local AI engine... Please wait.</div>`;
+            logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
+            history.innerHTML = `<div class="chat-msg chat-rob">Rob: Initializing local WebGPU engine... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
             try {
@@ -352,27 +355,23 @@
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
-                        logTerm(`⚡ Engine Loading [${pct}%]: ${progress.text}`);
+                        logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
+                        if (progress.progress === 1) {
+                            history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
+                            history.scrollTop = history.scrollHeight;
+                            
+                            inputField.disabled = false;
+                            sendBtn.disabled = false;
+                            inputField.placeholder = "Type a message to Rob...";
+                            bootBtn.innerText = "🟢 Engine Running";
+                            logTerm("🟢 Rob is fully online with active client-side RAG!");
+                            isBooting = false;
+                        }
                     }
                 });
-
-                // Add a brief pause to allow WebGPU buffers to fully map and stabilize
-                logTerm("⏳ Stabilizing GPU execution buffers...");
-                await new Promise(resolve => setTimeout(resolve, 1500));
-
-                history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Active local intelligence & knowledge base ready.</div>`;
-                history.scrollTop = history.scrollHeight;
-                
-                inputField.disabled = false;
-                sendBtn.disabled = false;
-                inputField.placeholder = "Type a message to Rob...";
-                bootBtn.innerText = "🟢 Engine Running";
-                logTerm("🟢 Rob is fully online with active local knowledge!");
-                isBooting = false;
-
             } catch (err) {
-                logTerm(`🔴 Engine Error: ${err.message}`);
-                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">🔴 Engine Error: ${err.message}.</div>`;
+                logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
+                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">🔴 WebGPU Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
                 bootBtn.disabled = false;
                 bootBtn.innerText = "⚡ Boot Rob Engine";
@@ -412,7 +411,7 @@
                 }
             ];
 
-            logTerm(`📝 Messages payload assembled. Executing real-time streaming response...`);
+            logTerm(`📝 OpenAI-style messages payload assembled. Executing real-time streaming completion...`);
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
@@ -436,9 +435,9 @@
                     history.scrollTop = history.scrollHeight;
                 }
 
-                logTerm(`✅ Response completed successfully (${fullReply.length} characters).`);
+                logTerm(`✅ Streaming response completed successfully (${fullReply.length} characters).`);
             } catch (err) {
-                logTerm(`🔴 Execution Error: ${err.message}`);
+                logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
                 replyDiv.innerText = "Rob Error: " + err.message;
             } finally {
                 inputField.disabled = false;
@@ -447,7 +446,6 @@
             }
         }
 
-        // Automatically scan corpus on load, ready for manual boot
         loadGeneralTrainingCorpus();
     </script>
 </body>
