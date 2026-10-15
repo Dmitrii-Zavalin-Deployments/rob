@@ -190,11 +190,11 @@
 
                 const manifestRes = await fetch(manifestUrl);
                 if (!manifestRes.ok) {
-                    throw new Error(`manifest.json HTTP status ${manifestRes.status} (${manifestRes.statusText})`);
+                    throw new Error(`manifest.json HTTP status ${manifestRes.status}`);
                 }
                 
                 const filenames = await manifestRes.json();
-                logTerm(`📄 Manifest successfully parsed. Found ${filenames.length} file entries.`);
+                logTerm(`📄 Manifest parsed. Found ${filenames.length} file entries.`);
                 
                 generalKnowledgeCorpus = [];
                 for (let filename of filenames) {
@@ -226,28 +226,21 @@
         }
 
         function searchGeneralTrainingCorpus(userQuery) {
-            logTerm(`🔎 RAG Search triggered for query: "${userQuery}"`);
-            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) return "";
+            logTerm(`🔎 Aggregating general_training corpus for query: "${userQuery}"`);
+            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
+                logTerm(`⚠️ Corpus is empty. No files to aggregate.`);
+                return "";
+            }
             
-            const queryWords = userQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-            let matchedSnippets = [];
-
+            // Aggregate ALL loaded training documents into a single master context string
+            let aggregatedContext = "";
             for (let doc of generalKnowledgeCorpus) {
-                let score = 0;
-                const lowerContent = doc.content.toLowerCase();
-                for (let word of queryWords) {
-                    if (lowerContent.includes(word)) score++;
-                }
-                logTerm(`📊 Document "${doc.name}" match score: ${score}`);
-                if (score > 0) {
-                    matchedSnippets.push(`File ${doc.name}:\n${doc.content}`);
-                    logTerm(`🎯 Match found in "${doc.name}"! Injecting into context.`);
-                }
+                logTerm(`📄 Appending document "${doc.name}" (${doc.content.length} chars) into master RAG string.`);
+                aggregatedContext += `\n--- Source File: ${doc.name} ---\n${doc.content}\n`;
             }
 
-            const finalContext = matchedSnippets.length > 0 ? matchedSnippets.join("\n\n") : "";
-            logTerm(`📦 RAG context injection length: ${finalContext.length} characters.`);
-            return finalContext;
+            logTerm(`📦 Master aggregated training string assembled (${aggregatedContext.length} total characters).`);
+            return aggregatedContext;
         }
 
         function downloadChatAsTxt() {
@@ -305,7 +298,6 @@
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
 
-                // Standard WebLLM engine boot without invalid WASM overrides
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
@@ -345,41 +337,47 @@
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
-            const ragContext = searchGeneralTrainingCorpus(userText);
+            // Step 1: Get aggregated training text
+            const aggregatedCorpus = searchGeneralTrainingCorpus(userText);
             
-            let promptContent = userText;
-            if (ragContext) {
-                promptContent = `Context:\n${ragContext}\n\nQuestion: ${userText}\nAnswer strictly based on context:`;
-                logTerm("🧠 Compact RAG prompt constructed.");
+            // Step 2: Combine corpus and user question into a single clean string prompt
+            let finalMasterPrompt = userText;
+            if (aggregatedCorpus) {
+                finalMasterPrompt = `Use the following reference documents to answer the user's question accurately:\n${aggregatedCorpus}\n\nUser Question: ${userText}\nAnswer:`;
             }
 
+            logTerm(`📝 Final Master Prompt assembled. Total length: ${finalMasterPrompt.length} characters.`);
+
             const messages = [
-                { role: "system", content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin." },
-                { role: "user", content: promptContent }
+                { role: "system", content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Answer concisely." },
+                { role: "user", content: finalMasterPrompt }
             ];
+
+            logTerm(`📤 Serialized messages payload structure: ${JSON.stringify(messages, null, 2)}`);
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
-            replyDiv.innerHTML = "🤖 Rob: <i>Generating...</i>";
+            replyDiv.innerHTML = "🤖 Rob: <i>Processing tensor pipeline...</i>";
             history.appendChild(replyDiv);
             history.scrollTop = history.scrollHeight;
 
             try {
-                logTerm("🤖 Generating response from WebGPU model...");
+                logTerm("🤖 Calling engine.chat.completions.create() on WebGPU tensor engine...");
                 
                 const completion = await engine.chat.completions.create({
                     messages,
                     temperature: 0.1,
-                    max_tokens: 128,
-                    stream: false
+                    max_tokens: 128
                 });
 
+                logTerm("✅ engine.chat.completions.create() returned successfully!");
                 const fullReply = completion.choices[0]?.message?.content || "(No response generated)";
                 replyDiv.innerText = "🤖 Rob: " + fullReply;
                 history.scrollTop = history.scrollHeight;
-                logTerm(`✅ Response generated successfully (${fullReply.length} characters).`);
+                logTerm(`✅ Response rendered successfully (${fullReply.length} characters).`);
             } catch (err) {
-                logTerm(`🔴 Generation Error: ${err.message}`);
+                logTerm(`🔴 WebGPU Buffer/Execution Error: ${err.message}`);
+                console.error("Full WebGPU Error Object:", err);
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
             }
         }
