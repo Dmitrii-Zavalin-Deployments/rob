@@ -51,7 +51,26 @@ export async function purgeStorageOnly() {
 }
 
 export async function wipeWebGPUCache() {
+    // Lock down input field and send button immediately
+    const inputField = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusBadge = document.getElementById('engine-status-badge');
+
+    if (inputField) {
+        inputField.disabled = true;
+        inputField.placeholder = "Clearing storage & restarting system...";
+    }
+    if (sendBtn) {
+        sendBtn.disabled = true;
+    }
+    if (statusBadge) {
+        statusBadge.style.background = "#a61c1c";
+        statusBadge.innerText = "🧹 Purging Storage...";
+    }
+
+    logTerm("🧹 [cache.js -> wipeWebGPUCache] User initiated storage purge. Locking UI...");
+
     await purgeStorageOnly();
-    logTerm("🔄 Reloading page...");
-    setTimeout(() => window.location.reload(), 1200);
+    logTerm("🔄 Storage purged. Reloading page...");
+    setTimeout(() => window.location.reload(), 1000);
 }
