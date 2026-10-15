@@ -3,100 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meet Rob — Sovereign Hybrid AI Hub</title>
-    <style>
-        body { 
-            font-family: "Segoe UI", Arial, sans-serif; 
-            background: #0f1115; 
-            color: #e1e4e8; 
-            padding: 30px; 
-            margin: 0; 
-            line-height: 1.55;
-        }
-        .wrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-        
-        .header-block { margin-bottom: 5px; }
-        .doc-class { font-size: 12px; color: #8b949e; margin-bottom: 5px; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600; }
-        h1 { margin: 0; font-size: 26px; font-weight: 600; color: #58a6ff; }
-        
-        .dashboard-grid { 
-            display: grid; 
-            grid-template-columns: 1.2fr 0.8fr; 
-            gap: 20px; 
-        }
-        @media (max-width: 950px) { .dashboard-grid { grid-template-columns: 1fr; } }
-
-        .card { background: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 20px; }
-        h2 { font-size: 18px; font-weight: 600; color: #58a6ff; margin-top: 0; margin-bottom: 12px; }
-        
-        input[type="text"] { 
-            width: 100%; 
-            background: #0d1117; 
-            color: #c9d1d9; 
-            border: 1px solid #30363d; 
-            border-radius: 6px; 
-            padding: 10px 12px; 
-            box-sizing: border-box; 
-            font-family: "Segoe UI", Arial, sans-serif;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-        
-        .btn { background: #238636; color: #fff; padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s; }
-        .btn:hover { background: #2ea043; }
-        .btn:disabled { background: #30363d; color: #6e7681; cursor: not-allowed; }
-
-        #log-terminal, #chat-history { 
-            background: #0d1117; 
-            color: #33ff33; 
-            padding: 15px; 
-            font-family: monospace; 
-            height: 220px; 
-            overflow-y: auto; 
-            border-radius: 6px; 
-            font-size: 13px; 
-            border: 1px solid #30363d; 
-            line-height: 1.4; 
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        #chat-history { color: #c9d1d9; height: 420px; display: flex; flex-direction: column; gap: 10px; font-family: "Segoe UI", Arial, sans-serif; white-space: normal; word-break: normal; }
-        .chat-msg { padding: 10px 14px; border-radius: 6px; max-width: 88%; word-wrap: break-word; font-size: 14px; }
-        .chat-user { background: #1f6feb; color: white; align-self: flex-end; }
-        .chat-rob { background: #21262d; border: 1px solid #30363d; align-self: flex-start; color: #c9d1d9; }
-        
-        .status-badge { display: inline-block; padding: 4px 8px; font-size: 11px; border-radius: 4px; font-weight: bold; background: #8957e5; color: white; margin-bottom: 10px; }
-    </style>
-    <!-- Import official local module tree -->
-    <script type="module">
-        import * as webllm from "./vendor/index.js";
-        window.webllm = webllm;
-    </script>
+    <title>Rob — Autonomous AI Engine</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="wrapper">
         <div class="header-block">
-            <div class="doc-class">Autonomous Architecture Node v2.0</div>
-            <h1>🤖 Meet Rob: Sovereign Edge AI Engine</h1>
-            <p style="color: #8b949e; margin: 4px 0 0 0; font-size: 15px;">Pure WebGPU Local Execution + Dynamic Client-Side RAG (Token-Free).</p>
+            <h1>Rob</h1>
+            <p class="subtitle">Autonomous AI Engine</p>
         </div>
 
         <div class="dashboard-grid">
             <!-- LEFT COLUMN: Chat Interface -->
             <div>
-                <div class="card" style="height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-                    <h2>💬 Talk to Rob (Edge Kernel + Client-Side RAG)</h2>
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                <div class="card left-column-card">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h2 style="margin: 0;">💬 Talk to Rob</h2>
                         <div>
-                            <span id="rag-status" class="status-badge">Scanning Corpus...</span>
-                        </div>
-                        <div>
-                            <button id="boot-btn" class="btn" style="background: #238636; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
+                            <button id="boot-btn" class="btn" style="background: #003366; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
                         </div>
                     </div>
                     
                     <div id="chat-history">
-                        <div class="chat-msg chat-rob">🤖 Rob: Standby. Click "⚡ Boot Rob Engine" to load WebGPU kernel and start chatting!</div>
+                        <div class="chat-msg chat-rob">Rob: Standby. Click "⚡ Boot Rob Engine" to load WebGPU kernel and start chatting!</div>
                     </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 8px;">
@@ -104,251 +33,37 @@
                         <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 12px; color: #8b949e;">Want to export history?</span>
-                        <button class="btn" style="background: #21262d; border: 1px solid #30363d; font-size: 12px; padding: 5px 10px;" onclick="downloadChatAsTxt()">📥 Download Chat as TXT</button>
+                        <span style="font-size: 12px; color: #555;">Want to export history?</span>
+                        <button class="btn" style="background: #e1e4e8; color: #1a1a1a; border: 1px solid #d0d7de; font-size: 12px; padding: 5px 10px;" onclick="downloadChatAsTxt()">📥 Download Chat as TXT</button>
                     </div>
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: System Status & Corpus Management -->
-            <div>
-                <!-- Status Panel -->
+            <!-- RIGHT COLUMN: Knowledge Base & Terminal Monitor -->
+            <div class="right-column">
+                <!-- Knowledge Base Panel -->
                 <div class="card">
-                    <h2>📁 Sovereign Knowledge Base</h2>
-                    <p style="font-size:13px; color:#8b949e; margin-top:0;">Automatically indexes all text files in your local <code>general_training/</code> directory with zero configuration.</p>
+                    <h2>📁 Knowledge Base</h2>
+                    <div>
+                        <span id="rag-status" class="status-badge">Scanning Corpus...</span>
+                    </div>
+                    <p style="font-size:13px; color:#555; margin-top:4px; margin-bottom:15px;">Automatically connects reference files to inform responses without external data sharing.</p>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn" style="background: #1f6feb; flex: 1;" onclick="loadGeneralTrainingCorpus()">🔄 Resync Corpus</button>
-                        <button class="btn" style="background: #da3633; flex: 1;" onclick="wipeWebGPUCache()">🧹 Wipe GPU Cache</button>
+                        <button class="btn" style="background: #003366; flex: 1;" onclick="loadGeneralTrainingCorpus()">🔄 Refresh Knowledge</button>
+                        <button class="btn" style="background: #a61c1c; flex: 1;" onclick="wipeWebGPUCache()">🧹 Clear Local Memory</button>
                     </div>
                 </div>
 
                 <!-- Terminal Output Monitor -->
-                <div class="card" style="margin-bottom: 0;">
-                    <h2>📡 Rob's System Terminal</h2>
+                <div class="card" id="terminal-card">
+                    <h2>📡 System Terminal</h2>
                     <div id="log-terminal">System Ready. Click "⚡ Boot Rob Engine" to launch.</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        let engine = null;
-        let isBooting = false;
-        let generalKnowledgeCorpus = [];
-        const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
-
-        function logTerm(message) {
-            const term = document.getElementById('log-terminal');
-            if (term) {
-                const timestamp = new Date().toLocaleTimeString();
-                term.innerText += `\n[${timestamp}] ${message}`;
-                term.scrollTop = term.scrollHeight;
-            }
-            console.log(`[Rob Terminal] ${message}`);
-        }
-
-        function getBasePath() {
-            let path = window.location.pathname;
-            if (!path.endsWith('/')) {
-                path = path.substring(0, path.lastIndexOf('/') + 1);
-            }
-            return window.location.origin + path;
-        }
-
-        async function wipeWebGPUCache() {
-            logTerm("🧹 Purging browser IndexedDB and WebGPU caches...");
-            localStorage.clear();
-            try {
-                if (window.indexedDB && indexedDB.databases) {
-                    const dbs = await indexedDB.databases();
-                    for (let db of dbs) {
-                        if (db.name) {
-                            indexedDB.deleteDatabase(db.name);
-                            logTerm(`🗑️ Deleted IndexedDB: ${db.name}`);
-                        }
-                    }
-                } else {
-                    indexedDB.deleteDatabase("webllm/");
-                    indexedDB.deleteDatabase("mlc-chat");
-                }
-                logTerm("✅ GPU cache successfully wiped! Reloading page...");
-                setTimeout(() => window.location.reload(), 1200);
-            } catch (err) {
-                logTerm(`⚠️ Error wiping cache: ${err.message}`);
-                window.location.reload();
-            }
-        }
-
-        async function loadGeneralTrainingCorpus() {
-            const badge = document.getElementById('rag-status');
-            logTerm("🤖 Initiating scan of general_training/ corpus...");
-
-            try {
-                const basePath = getBasePath();
-                const manifestUrl = `${basePath}general_training/manifest.json?v=${Date.now()}`;
-                logTerm(`🔍 Fetching manifest from: ${manifestUrl}`);
-
-                const manifestRes = await fetch(manifestUrl);
-                if (!manifestRes.ok) throw new Error(`manifest.json HTTP status ${manifestRes.status}`);
-                
-                const filenames = await manifestRes.json();
-                logTerm(`📄 Manifest parsed. Found ${filenames.length} file entries.`);
-                
-                generalKnowledgeCorpus = [];
-                for (let filename of filenames) {
-                    const fileUrl = `${basePath}general_training/${filename}?v=${Date.now()}`;
-                    logTerm(`📥 Downloading knowledge file: ${filename}`);
-                    
-                    const fileRes = await fetch(fileUrl);
-                    if (fileRes.ok) {
-                        const content = await fileRes.text();
-                        generalKnowledgeCorpus.push({ name: filename, content: content });
-                        logTerm(`✅ Loaded "${filename}" successfully (${content.length} characters).`);
-                    } else {
-                        logTerm(`❌ Failed to load file "${filename}" (HTTP ${fileRes.status})`);
-                    }
-                }
-
-                if (badge) {
-                    badge.style.background = "#238636";
-                    badge.innerText = `🟢 RAG Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
-                }
-                logTerm(`🎉 Knowledge corpus synchronization complete.`);
-            } catch (err) {
-                logTerm(`🔴 CRITICAL RAG Error: ${err.message}`);
-                if (badge) {
-                    badge.style.background = "#d29922";
-                    badge.innerText = `⚠️ Corpus Sync Failed`;
-                }
-            }
-        }
-
-        async function bootRobEngine() {
-            if (isBooting) return;
-            isBooting = true;
-
-            const history = document.getElementById('chat-history');
-            const inputField = document.getElementById('chat-input');
-            const sendBtn = document.getElementById('send-btn');
-            const bootBtn = document.getElementById('boot-btn');
-
-            bootBtn.disabled = true;
-            bootBtn.innerText = "⏳ Booting...";
-
-            logTerm("🚀 Boot sequence initiated...");
-            await loadGeneralTrainingCorpus();
-
-            if (engine) {
-                logTerm("🧹 Unloading previous WebGPU engine instance...");
-                try { await engine.unload(); } catch(e) {}
-                engine = null;
-            }
-
-            logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
-            history.innerHTML = `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine... Please wait.</div>`;
-            history.scrollTop = history.scrollHeight;
-            
-            try {
-                if (!window.webllm || !window.webllm.CreateMLCEngine) {
-                    throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
-                }
-
-                engine = await window.webllm.CreateMLCEngine(selectedModel, {
-                    initProgressCallback: (progress) => {
-                        const pct = Math.round(progress.progress * 100);
-                        logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
-                        if (progress.progress === 1) {
-                            history.innerHTML = `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
-                            history.scrollTop = history.scrollHeight;
-                            
-                            inputField.disabled = false;
-                            sendBtn.disabled = false;
-                            inputField.placeholder = "Type a message to Rob...";
-                            bootBtn.innerText = "🟢 Engine Running";
-                            logTerm("🟢 Rob is fully online with active client-side RAG!");
-                            isBooting = false;
-                        }
-                    }
-                });
-            } catch (err) {
-                logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
-                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
-                history.scrollTop = history.scrollHeight;
-                bootBtn.disabled = false;
-                bootBtn.innerText = "⚡ Boot Rob Engine";
-                isBooting = false;
-            }
-        }
-
-        async function sendChatMessage() {
-            const inputField = document.getElementById('chat-input');
-            const sendBtn = document.getElementById('send-btn');
-            const history = document.getElementById('chat-history');
-            const userText = inputField.value.trim();
-
-            if (!userText || !engine) return;
-
-            inputField.disabled = true;
-            sendBtn.disabled = true;
-
-            logTerm(`💬 User query submitted: "${userText}"`);
-            history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${userText}</div>`;
-            inputField.value = '';
-            history.scrollTop = history.scrollHeight;
-
-            let assembledTxt = "";
-            for (let doc of generalKnowledgeCorpus) {
-                assembledTxt += `\n[File: ${doc.name}]\n${doc.content}\n`;
-            }
-
-            const messages = [
-                { 
-                    role: "system", 
-                    content: `You are Rob, an autonomous sovereign AI created by Dmitrii Zavalin. Answer questions accurately using only the provided reference knowledge base.\n\n--- REFERENCE KNOWLEDGE BASE ---\n${assembledTxt}` 
-                },
-                { 
-                    role: "user", 
-                    content: userText 
-                }
-            ];
-
-            logTerm(`📝 OpenAI-style messages payload assembled. Executing real-time streaming completion...`);
-
-            const replyDiv = document.createElement("div");
-            replyDiv.className = "chat-msg chat-rob";
-            replyDiv.innerHTML = "🤖 Rob: <i>Thinking...</i>";
-            history.appendChild(replyDiv);
-            history.scrollTop = history.scrollHeight;
-
-            try {
-                // Enable streaming for instant token-by-token visual feedback
-                const asyncIterator = await engine.chat.completions.create({
-                    messages,
-                    temperature: 0.1,
-                    max_tokens: 128,
-                    stream: true
-                });
-
-                let fullReply = "";
-                for await (const chunk of asyncIterator) {
-                    const delta = chunk.choices[0]?.delta?.content || "";
-                    fullReply += delta;
-                    replyDiv.innerText = "🤖 Rob: " + fullReply;
-                    history.scrollTop = history.scrollHeight;
-                }
-
-                logTerm(`✅ Streaming response completed successfully (${fullReply.length} characters).`);
-            } catch (err) {
-                logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
-                replyDiv.innerText = "🤖 Rob Error: " + err.message;
-            } finally {
-                inputField.disabled = false;
-                sendBtn.disabled = false;
-                inputField.focus();
-            }
-        }
-
-        loadGeneralTrainingCorpus();
-    </script>
+    <!-- Load main JavaScript module -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>
