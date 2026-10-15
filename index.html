@@ -278,7 +278,6 @@
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
 
-                // Explicit engine options pinning KV-cache allocation to prevent async buffer unmapping on AMD Vulkan driver
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
@@ -294,8 +293,7 @@
                             logTerm("🟢 Rob is fully online with active client-side RAG!");
                             isBooting = false;
                         }
-                    },
-                    logLevel: "INFO"
+                    }
                 });
             } catch (err) {
                 logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
@@ -309,43 +307,42 @@
 
         async function sendChatMessage() {
             const inputField = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
             const history = document.getElementById('chat-history');
             const userText = inputField.value.trim();
 
             if (!userText || !engine) return;
 
-            logTerm(`💬 User prompt submitted: "${userText}"`);
+            // Lock input to prevent concurrent buffer execution
+            inputField.disabled = true;
+            sendBtn.disabled = true;
+
+            logTerm(`💬 User query submitted: "${userText}"`);
             history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${userText}</div>`;
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
-            let aggregatedCorpus = "";
+            // 1. Assemble all loaded training txt files into one clean string
+            let assembledTxt = "";
             for (let doc of generalKnowledgeCorpus) {
-                aggregatedCorpus += `\n--- Source File: ${doc.name} ---\n${doc.content}\n`;
+                assembledTxt += `\n[File: ${doc.name}]\n${doc.content}\n`;
             }
 
-            let finalMasterPrompt = userText;
-            if (aggregatedCorpus) {
-                finalMasterPrompt = `Use the following reference documents to answer the user's question accurately:\n${aggregatedCorpus}\n\nUser Question: ${userText}\nAnswer:`;
-            }
+            // 2. Format exact flat query structure requested
+            const flatPrompt = `Please find in here:\n${assembledTxt}\nthe answer to this: ${userText}\n\nAnswer:`;
+            logTerm(`📝 Flat direct prompt assembled (${flatPrompt.length} chars). Executing single-shot completion...`);
 
-            logTerm(`📝 Final Master Prompt assembled (${finalMasterPrompt.length} chars). Calling WebGPU inference...`);
-
-            // Use simple string prompt for direct single-turn execution to prevent KV-cache unmapping during turn resets
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
-            replyDiv.innerHTML = "🤖 Rob: <i>Processing tensor pipeline...</i>";
+            replyDiv.innerHTML = "🤖 Rob: <i>Processing query...</i>";
             history.appendChild(replyDiv);
             history.scrollTop = history.scrollHeight;
 
             try {
-                // Ensure internal chat engine state is reset before generation
-                await engine.resetChat();
-
+                // Execute using a single flat user message payload with stream: false
                 const completion = await engine.chat.completions.create({
                     messages: [
-                        { role: "system", content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Answer accurately." },
-                        { role: "user", content: finalMasterPrompt }
+                        { role: "user", content: flatPrompt }
                     ],
                     temperature: 0.1,
                     max_tokens: 128,
@@ -357,8 +354,13 @@
                 history.scrollTop = history.scrollHeight;
                 logTerm(`✅ Response generated successfully (${fullReply.length} characters).`);
             } catch (err) {
-                logTerm(`🔴 WebGPU Buffer/Execution Error: ${err.message}`);
+                logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
+            } finally {
+                // Unlock input for next turn
+                inputField.disabled = false;
+                sendBtn.disabled = false;
+                inputField.focus();
             }
         }
 
