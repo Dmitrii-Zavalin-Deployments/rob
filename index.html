@@ -158,14 +158,17 @@
             <!-- LEFT COLUMN: Chat Interface -->
             <div>
                 <div class="card left-column-card">
-                    <h2>💬 Talk to Rob</h2>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h2 style="margin: 0;">💬 Talk to Rob</h2>
+                        <button id="boot-btn" class="btn" style="background: #003366; padding: 6px 14px; font-size: 13px;" onclick="bootRobEngine()">⚡ Boot Rob Engine</button>
+                    </div>
                     
                     <div id="chat-history">
-                        <div class="chat-msg chat-rob">Rob: Initializing local engine... Please wait.</div>
+                        <div class="chat-msg chat-rob">Rob: Standby. Click "⚡ Boot Rob Engine" to load WebGPU kernel and start chatting!</div>
                     </div>
 
                     <div style="margin-top: 15px; display: flex; gap: 8px;">
-                        <input type="text" id="chat-input" placeholder="Initializing engine..." disabled style="margin-bottom: 0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
+                        <input type="text" id="chat-input" placeholder="Boot engine first..." disabled style="margin-bottom: 0;" onkeydown="if(event.key==='Enter') sendChatMessage()">
                         <button id="send-btn" class="btn" disabled onclick="sendChatMessage()">Send 💬</button>
                     </div>
                     <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
@@ -193,7 +196,7 @@
                 <!-- Terminal Output Monitor -->
                 <div class="card" id="terminal-card">
                     <h2>📡 System Terminal</h2>
-                    <div id="log-terminal">System Initializing...</div>
+                    <div id="log-terminal">System Ready. Click "⚡ Boot Rob Engine" to launch.</div>
                 </div>
             </div>
         </div>
@@ -323,6 +326,10 @@
             const history = document.getElementById('chat-history');
             const inputField = document.getElementById('chat-input');
             const sendBtn = document.getElementById('send-btn');
+            const bootBtn = document.getElementById('boot-btn');
+
+            bootBtn.disabled = true;
+            bootBtn.innerText = "⏳ Booting...";
 
             logTerm("🚀 Engine boot sequence initiated...");
             await loadGeneralTrainingCorpus();
@@ -349,16 +356,17 @@
                     }
                 });
 
-                if (engine.resetChat) {
-                    await engine.resetChat();
-                }
+                // Add a brief pause to allow WebGPU buffers to fully map and stabilize
+                logTerm("⏳ Stabilizing GPU execution buffers...");
+                await new Promise(resolve => setTimeout(resolve, 1500));
 
-                history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! I am online and ready to assist you.</div>`;
+                history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Active local intelligence & knowledge base ready.</div>`;
                 history.scrollTop = history.scrollHeight;
                 
                 inputField.disabled = false;
                 sendBtn.disabled = false;
                 inputField.placeholder = "Type a message to Rob...";
+                bootBtn.innerText = "🟢 Engine Running";
                 logTerm("🟢 Rob is fully online with active local knowledge!");
                 isBooting = false;
 
@@ -366,6 +374,8 @@
                 logTerm(`🔴 Engine Error: ${err.message}`);
                 history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">🔴 Engine Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
+                bootBtn.disabled = false;
+                bootBtn.innerText = "⚡ Boot Rob Engine";
                 isBooting = false;
             }
         }
@@ -411,7 +421,6 @@
             history.scrollTop = history.scrollHeight;
 
             try {
-                // Attempt streaming response first
                 const asyncIterator = await engine.chat.completions.create({
                     messages,
                     temperature: 0.1,
@@ -429,27 +438,8 @@
 
                 logTerm(`✅ Response completed successfully (${fullReply.length} characters).`);
             } catch (err) {
-                // Fallback mechanism for WebGPU Buffer unmapped faults on Linux/Firefox
-                if (err.message && (err.message.includes("Buffer unmapped") || err.message.includes("Invalid buffer"))) {
-                    logTerm(`⚠️ WebGPU buffer state fault detected. Re-executing via fallback completion...`);
-                    try {
-                        const fallbackCompletion = await engine.chat.completions.create({
-                            messages,
-                            temperature: 0.1,
-                            max_tokens: 128,
-                            stream: false
-                        });
-                        const fallbackReply = fallbackCompletion.choices[0]?.message?.content || "(No response generated)";
-                        replyDiv.innerText = "Rob: " + fallbackReply;
-                        logTerm(`✅ Fallback response completed successfully (${fallbackReply.length} characters).`);
-                    } catch (fallbackErr) {
-                        logTerm(`🔴 Execution Error: ${fallbackErr.message}`);
-                        replyDiv.innerText = "Rob Error: " + fallbackErr.message;
-                    }
-                } else {
-                    logTerm(`🔴 Execution Error: ${err.message}`);
-                    replyDiv.innerText = "Rob Error: " + err.message;
-                }
+                logTerm(`🔴 Execution Error: ${err.message}`);
+                replyDiv.innerText = "Rob Error: " + err.message;
             } finally {
                 inputField.disabled = false;
                 sendBtn.disabled = false;
@@ -457,9 +447,8 @@
             }
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            bootRobEngine();
-        });
+        // Automatically scan corpus on load, ready for manual boot
+        loadGeneralTrainingCorpus();
     </script>
 </body>
 </html>
