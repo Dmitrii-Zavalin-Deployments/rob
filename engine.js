@@ -51,7 +51,7 @@ export async function bootRobEngine() {
                 // Only unlock UI when WebGPU shader compilation & memory mapping are 100% complete
                 if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
                     if (history) {
-                        history.innerHTML = `<div class="chat-msg chat-rob">Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
+                        history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
                         history.scrollTop = history.scrollHeight;
                     }
                     
