@@ -240,7 +240,7 @@
                 }
                 logTerm(`📊 Document "${doc.name}" match score: ${score}`);
                 if (score > 0) {
-                    matchedSnippets.push(`--- Knowledge File: ${doc.name} ---\n${doc.content}`);
+                    matchedSnippets.push(`File ${doc.name}:\n${doc.content}`);
                     logTerm(`🎯 Match found in "${doc.name}"! Injecting into context.`);
                 }
             }
@@ -305,12 +305,27 @@
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
                 
+                // Configure explicit WebGPU KV-cache parameters to prevent buffer unmapping in Firefox
+                const appConfig = {
+                    model_list: [
+                        {
+                            model: "https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
+                            model_id: selectedModel,
+                            model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k-webgpu.wasm",
+                            overrides: {
+                                context_window_size: 2048
+                            }
+                        }
+                    ]
+                };
+
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
+                    appConfig,
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
                         logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
                         if (progress.progress === 1) {
-                            history.innerHTML += `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
+                            history.innerHTML = `<div class="chat-msg chat-rob">⚡ Rob: WebGPU Kernel loaded successfully! Autonomous local intelligence & client-side RAG active.</div>`;
                             history.scrollTop = history.scrollHeight;
                             
                             inputField.disabled = false;
@@ -346,32 +361,31 @@
 
             const ragContext = searchGeneralTrainingCorpus(userText);
             
-            let systemPrompt = "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Answer the user's question directly and concisely.";
+            // Simplified prompt structure to keep system attention sharp
+            let promptContent = userText;
             if (ragContext) {
-                systemPrompt += `\n\n[Retrieved Knowledge Base Context]:\n${ragContext}\n\nBased strictly on the retrieved knowledge above, answer the user accurately.`;
-                logTerm("🧠 System prompt constructed with RAG context injection.");
-            } else {
-                logTerm("⚠️ System prompt constructed without RAG context.");
+                promptContent = `Context:\n${ragContext}\n\nQuestion: ${userText}\nAnswer based on the context:`;
+                logTerm("🧠 Compact RAG prompt constructed.");
             }
 
             const messages = [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userText }
+                { role: "system", content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin." },
+                { role: "user", content: promptContent }
             ];
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
-            replyDiv.innerHTML = "🤖 Rob: <i>Thinking...</i>";
+            replyDiv.innerHTML = "🤖 Rob: <i>Generating...</i>";
             history.appendChild(replyDiv);
             history.scrollTop = history.scrollHeight;
 
             try {
-                logTerm("🤖 Generating response from WebGPU model (non-streaming mode)...");
+                logTerm("🤖 Generating response from WebGPU model...");
                 
-                // Switch to stream: false to bypass buffer mapping bugs on local WebGPU drivers
                 const completion = await engine.chat.completions.create({
                     messages,
-                    temperature: 0.1,
+                    temperature: 0.2,
+                    max_tokens: 128,
                     stream: false
                 });
 
