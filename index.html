@@ -269,8 +269,8 @@
                 engine = null;
             }
 
-            logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel} (Optimized 2k VRAM context)`);
-            history.innerHTML = `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine with optimized memory constraints... Please wait.</div>`;
+            logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
+            history.innerHTML = `<div class="chat-msg chat-rob">🤖 Rob: Initializing local WebGPU engine... Please wait.</div>`;
             history.scrollTop = history.scrollHeight;
             
             try {
@@ -278,7 +278,7 @@
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
 
-                // Constrain context window size to prevent staging buffer fragmentation on Linux GPU drivers
+                // Standard clean engine creation using WebLLM's built-in model registry
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
@@ -294,15 +294,6 @@
                             logTerm("🟢 Rob is fully online with active client-side RAG!");
                             isBooting = false;
                         }
-                    },
-                    appConfig: {
-                        model_list: [
-                            {
-                                model_url: "",
-                                local_id: selectedModel,
-                                buffer_size_required_bytes: 512 * 1024 * 1024
-                            }
-                        ]
                     }
                 });
             } catch (err) {
