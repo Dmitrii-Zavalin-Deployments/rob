@@ -313,7 +313,6 @@
 
             if (!userText || !engine) return;
 
-            // Lock input to prevent concurrent buffer execution
             inputField.disabled = true;
             sendBtn.disabled = true;
 
@@ -322,15 +321,18 @@
             inputField.value = '';
             history.scrollTop = history.scrollHeight;
 
-            // 1. Assemble all loaded training txt files into one clean string
             let assembledTxt = "";
             for (let doc of generalKnowledgeCorpus) {
                 assembledTxt += `\n[File: ${doc.name}]\n${doc.content}\n`;
             }
 
-            // 2. Format exact flat query structure requested
-            const flatPrompt = `Please find in here:\n${assembledTxt}\nthe answer to this: ${userText}\n\nAnswer:`;
-            logTerm(`📝 Flat direct prompt assembled (${flatPrompt.length} chars). Executing single-shot completion...`);
+            // ChatML structural formatting for Qwen instruction attention alignment
+            const systemPrompt = `You are Rob, an autonomous sovereign AI created by Dmitrii Zavalin. You answer user queries using the provided reference files.\n\n--- REFERENCE KNOWLEDGE BASE ---\n${assembledTxt}`;
+            const userPrompt = `Based on the reference knowledge base above, answer this question concisely: ${userText}`;
+
+            const formattedChatML = `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userPrompt}<|im_end|>\n<|im_start|>assistant\n`;
+
+            logTerm(`📝 ChatML prompt structure assembled (${formattedChatML.length} chars). Executing completion...`);
 
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
@@ -339,17 +341,20 @@
             history.scrollTop = history.scrollHeight;
 
             try {
-                // Execute using a single flat user message payload with stream: false
                 const completion = await engine.chat.completions.create({
                     messages: [
-                        { role: "user", content: flatPrompt }
+                        { role: "user", content: formattedChatML }
                     ],
                     temperature: 0.1,
                     max_tokens: 128,
                     stream: false
                 });
 
-                const fullReply = completion.choices[0]?.message?.content || "(No response generated)";
+                let fullReply = completion.choices[0]?.message?.content || "(No response generated)";
+                
+                // Clean up any stray tokens
+                fullReply = fullReply.replace(/<\|im_end\|>/g, "").trim();
+
                 replyDiv.innerText = "🤖 Rob: " + fullReply;
                 history.scrollTop = history.scrollHeight;
                 logTerm(`✅ Response generated successfully (${fullReply.length} characters).`);
@@ -357,7 +362,6 @@
                 logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
                 replyDiv.innerText = "🤖 Rob Error: " + err.message;
             } finally {
-                // Unlock input for next turn
                 inputField.disabled = false;
                 sendBtn.disabled = false;
                 inputField.focus();
