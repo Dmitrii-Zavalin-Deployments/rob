@@ -36,7 +36,7 @@
             display: grid; 
             grid-template-columns: 1.2fr 0.8fr; 
             gap: 25px; 
-            align-items: start;
+            align-items: flex-start;
         }
         @media (max-width: 950px) { .dashboard-grid { grid-template-columns: 1fr; } }
 
@@ -109,7 +109,8 @@
             padding: 15px; 
             font-family: monospace; 
             height: 380px; 
-            overflow-y: auto; 
+            max-height: 380px;
+            overflow-y: scroll; 
             border-radius: 4px; 
             font-size: 13px; 
             border: 1px solid #30363d; 
@@ -346,7 +347,11 @@
                     }
                 });
 
-                // Ensure shaders and device allocation are 100% complete before unlocking UI
+                // Reset KV-cache state machine to ensure full initialization before accepting user messages
+                if (engine.resetChat) {
+                    await engine.resetChat();
+                }
+
                 history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! I am online and ready to assist you.</div>`;
                 history.scrollTop = history.scrollHeight;
                 
@@ -431,7 +436,6 @@
             }
         }
 
-        // Automatically boot engine when DOM content is loaded
         window.addEventListener('DOMContentLoaded', () => {
             bootRobEngine();
         });
