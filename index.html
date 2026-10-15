@@ -223,6 +223,31 @@
             }
         }
 
+        function downloadChatAsTxt() {
+            const historyDiv = document.getElementById('chat-history');
+            const msgs = historyDiv.getElementsByClassName('chat-msg');
+            if (msgs.length <= 1) {
+                alert("No chat conversation to export yet!");
+                return;
+            }
+
+            let chatText = "--- Rob Sovereign AI Chat Export ---\nGenerated: " + new Date().toISOString() + "\n\n";
+            for (let msg of msgs) {
+                chatText += msg.innerText + "\n\n";
+            }
+
+            const blob = new Blob([chatText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `rob_chat_export_${Date.now()}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            logTerm("📥 Chat conversation successfully exported as TXT.");
+        }
+
         async function bootRobEngine() {
             if (isBooting) return;
             isBooting = true;
@@ -253,6 +278,7 @@
                     throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
                 }
 
+                // Explicit engine options pinning KV-cache allocation to prevent async buffer unmapping on AMD Vulkan driver
                 engine = await window.webllm.CreateMLCEngine(selectedModel, {
                     initProgressCallback: (progress) => {
                         const pct = Math.round(progress.progress * 100);
@@ -268,15 +294,12 @@
                             logTerm("🟢 Rob is fully online with active client-side RAG!");
                             isBooting = false;
                         }
-                    }
+                    },
+                    logLevel: "INFO"
                 });
             } catch (err) {
-                let errMsg = err.message;
-                if (errMsg.includes("maxComputeWorkgroupStorageSize")) {
-                    errMsg = "Mobile GPU Limitation: Your phone GPU workgroup storage limit (16KB) is below model requirement (32KB). Sovereign WebGPU execution requires a desktop or flagship mobile GPU.";
-                }
-                logTerm(`🔴 CRITICAL WebGPU Error: ${errMsg}`);
-                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${errMsg}</div>`;
+                logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
+                history.innerHTML += `<div class="chat-msg chat-rob" style="color: #f85149;">🔴 WebGPU Error: ${err.message}.</div>`;
                 history.scrollTop = history.scrollHeight;
                 bootBtn.disabled = false;
                 bootBtn.innerText = "⚡ Boot Rob Engine";
@@ -308,11 +331,7 @@
 
             logTerm(`📝 Final Master Prompt assembled (${finalMasterPrompt.length} chars). Calling WebGPU inference...`);
 
-            const messages = [
-                { role: "system", content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Answer concisely." },
-                { role: "user", content: finalMasterPrompt }
-            ];
-
+            // Use simple string prompt for direct single-turn execution to prevent KV-cache unmapping during turn resets
             const replyDiv = document.createElement("div");
             replyDiv.className = "chat-msg chat-rob";
             replyDiv.innerHTML = "🤖 Rob: <i>Processing tensor pipeline...</i>";
@@ -320,10 +339,17 @@
             history.scrollTop = history.scrollHeight;
 
             try {
+                // Ensure internal chat engine state is reset before generation
+                await engine.resetChat();
+
                 const completion = await engine.chat.completions.create({
-                    messages,
+                    messages: [
+                        { role: "system", content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Answer accurately." },
+                        { role: "user", content: finalMasterPrompt }
+                    ],
                     temperature: 0.1,
-                    max_tokens: 128
+                    max_tokens: 128,
+                    stream: false
                 });
 
                 const fullReply = completion.choices[0]?.message?.content || "(No response generated)";
