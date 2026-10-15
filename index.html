@@ -116,7 +116,10 @@
                 <div class="card">
                     <h2>📁 Sovereign Knowledge Base</h2>
                     <p style="font-size:13px; color:#8b949e; margin-top:0;">Automatically indexes all text files in your local <code>general_training/</code> directory with zero configuration.</p>
-                    <button class="btn" style="background: #1f6feb; width: 100%;" onclick="loadGeneralTrainingCorpus()">🔄 Resync Training Corpus</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" style="background: #1f6feb; flex: 1;" onclick="loadGeneralTrainingCorpus()">🔄 Resync Corpus</button>
+                        <button class="btn" style="background: #da3633; flex: 1;" onclick="wipeWebGPUCache()">🧹 Wipe GPU Cache</button>
+                    </div>
                 </div>
 
                 <!-- Terminal Output Monitor -->
@@ -134,7 +137,6 @@
         let generalKnowledgeCorpus = [];
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
-        // Helper to log messages directly to Rob's System Terminal
         function logTerm(message) {
             const term = document.getElementById('log-terminal');
             if (term) {
@@ -145,7 +147,6 @@
             console.log(`[Rob Terminal] ${message}`);
         }
 
-        // Helper to construct exact URL paths for GitHub Pages static assets
         function getBasePath() {
             let path = window.location.pathname;
             if (!path.endsWith('/')) {
@@ -154,10 +155,32 @@
             return window.location.origin + path;
         }
 
-        // Clear legacy cache on startup
-        localStorage.removeItem('rob_adapter_weights');
+        // Wipe IndexedDB databases used by WebLLM/MLC to prevent Buffer unmapped errors
+        async function wipeWebGPUCache() {
+            logTerm("🧹 Purging browser IndexedDB and WebGPU caches...");
+            localStorage.clear();
+            try {
+                if (window.indexedDB && indexedDB.databases) {
+                    const dbs = await indexedDB.databases();
+                    for (let db of dbs) {
+                        if (db.name) {
+                            indexedDB.deleteDatabase(db.name);
+                            logTerm(`🗑️ Deleted IndexedDB: ${db.name}`);
+                        }
+                    }
+                } else {
+                    // Fallback known db names
+                    indexedDB.deleteDatabase("webllm/");
+                    indexedDB.deleteDatabase("mlc-chat");
+                }
+                logTerm("✅ GPU cache successfully wiped! Reloading page...");
+                setTimeout(() => window.location.reload(), 1200);
+            } catch (err) {
+                logTerm(`⚠️ Error wiping cache: ${err.message}`);
+                window.location.reload();
+            }
+        }
 
-        // Static Client-Side RAG Corpus Loader with detailed terminal logging
         async function loadGeneralTrainingCorpus() {
             const badge = document.getElementById('rag-status');
             logTerm("🤖 Initiating scan of general_training/ corpus...");
@@ -173,12 +196,12 @@
                 }
                 
                 const filenames = await manifestRes.json();
-                logTerm(`📄 Manifest successfully parsed. Found ${filenames.length} file entries: ${JSON.stringify(filenames)}`);
+                logTerm(`📄 Manifest successfully parsed. Found ${filenames.length} file entries.`);
                 
                 generalKnowledgeCorpus = [];
                 for (let filename of filenames) {
                     const fileUrl = `${basePath}general_training/${filename}?v=${Date.now()}`;
-                    logTerm(`📥 Downloading knowledge file: ${filename} from ${fileUrl}`);
+                    logTerm(`📥 Downloading knowledge file: ${filename}`);
                     
                     const fileRes = await fetch(fileUrl);
                     if (fileRes.ok) {
@@ -194,7 +217,7 @@
                     badge.style.background = "#238636";
                     badge.innerText = `🟢 RAG Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
                 }
-                logTerm(`🎉 Knowledge corpus synchronization complete. Total active docs: ${generalKnowledgeCorpus.length}`);
+                logTerm(`🎉 Knowledge corpus synchronization complete.`);
             } catch (err) {
                 logTerm(`🔴 CRITICAL RAG Error: ${err.message}`);
                 if (badge) {
@@ -206,13 +229,9 @@
 
         function searchGeneralTrainingCorpus(userQuery) {
             logTerm(`🔎 RAG Search triggered for query: "${userQuery}"`);
-            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
-                logTerm(`⚠️ RAG search skipped: Corpus is empty.`);
-                return "";
-            }
+            if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) return "";
             
             const queryWords = userQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-            logTerm(`🔑 Extracted search keywords: ${JSON.stringify(queryWords)}`);
             let matchedSnippets = [];
 
             for (let doc of generalKnowledgeCorpus) {
@@ -224,7 +243,7 @@
                 logTerm(`📊 Document "${doc.name}" match score: ${score}`);
                 if (score > 0) {
                     matchedSnippets.push(`--- Knowledge File: ${doc.name} ---\n${doc.content}`);
-                    logTerm(`🎯 Match found in "${doc.name}"! Injecting into prompt context.`);
+                    logTerm(`🎯 Match found in "${doc.name}"! Injecting into context.`);
                 }
             }
 
@@ -275,12 +294,7 @@
 
             if (engine) {
                 logTerm("🧹 Unloading previous WebGPU engine instance...");
-                try { 
-                    await engine.unload(); 
-                    logTerm("✅ Previous engine successfully unloaded.");
-                } catch(e) {
-                    logTerm(`⚠️ Warning during engine unload: ${e.message}`);
-                }
+                try { await engine.unload(); } catch(e) {}
                 engine = null;
             }
 
@@ -339,7 +353,7 @@
                 systemPrompt += `\n\n[Retrieved Knowledge Base Context]:\n${ragContext}\n\nBased strictly on the retrieved knowledge above, answer the user accurately.`;
                 logTerm("🧠 System prompt constructed with RAG context injection.");
             } else {
-                logTerm("⚠️ System prompt constructed without RAG context (fallback to base model).");
+                logTerm("⚠️ System prompt constructed without RAG context.");
             }
 
             const messages = [
@@ -374,7 +388,6 @@
             }
         }
 
-        // Auto-sync general training corpus on page load
         loadGeneralTrainingCorpus();
     </script>
 </body>
