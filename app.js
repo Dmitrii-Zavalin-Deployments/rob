@@ -1,11 +1,12 @@
 import { logTerm } from './logger.js';
 import { purgeStorageOnly, wipeWebGPUCache } from './cache.js';
 import { bootRobEngine } from './engine.js';
-import { sendChatMessage, downloadChatAsTxt } from './chat.js';
+import { sendChatMessage, handleChatKeydown, downloadChatAsTxt } from './chat.js';
 
 console.log("[Module Loaded] app.js | Initializing Automatic Boot Sequence");
 
 window.sendChatMessage = sendChatMessage;
+window.handleChatKeydown = handleChatKeydown;
 window.wipeWebGPUCache = wipeWebGPUCache;
 window.downloadChatAsTxt = downloadChatAsTxt;
 
