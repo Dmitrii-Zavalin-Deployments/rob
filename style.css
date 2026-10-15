@@ -96,17 +96,39 @@ h2 {
     gap: 8px;
 }
 
-/* Badges */
+/* Badges Base */
 .status-badge { 
     display: inline-flex; 
     align-items: center;
-    padding: 4px 12px; 
+    justify-content: center;
+    padding: 6px 14px; 
     font-size: 12px; 
     border-radius: 20px; 
     font-weight: 600; 
     background: #e6edf5; 
     color: var(--primary-blue); 
     letter-spacing: 0.2px;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+/* Dynamic Badge States */
+.status-badge.loading {
+    background: #e6edf5 !important;
+    color: #003366 !important;
+    border: 1px solid #cce0f5;
+}
+
+.status-badge.running, .status-badge.active {
+    background: #e6f4ea !important;
+    color: #137333 !important;
+    border: 1px solid #ceebd6;
+}
+
+.status-badge.error {
+    background: #fce8e6 !important;
+    color: #c5221f !important;
+    border: 1px solid #fad2cf;
 }
 
 /* Chat Input Textarea */

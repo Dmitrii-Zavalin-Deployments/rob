@@ -18,8 +18,7 @@ export async function bootRobEngine() {
     const statusBadge = document.getElementById('engine-status-badge');
 
     if (statusBadge) {
-        statusBadge.className = "status-badge";
-        statusBadge.style.background = "#003366";
+        statusBadge.className = "status-badge loading";
         statusBadge.innerText = "⏳ Engine Booting...";
     }
 
@@ -62,7 +61,7 @@ export async function bootRobEngine() {
                     if (sendBtn) sendBtn.disabled = false;
 
                     if (statusBadge) {
-                        statusBadge.style.background = "#1b7c3d";
+                        statusBadge.className = "status-badge running";
                         statusBadge.innerText = "🟢 Engine Running";
                     }
                     logTerm("🟢 Rob is fully online with active client-side RAG!");
@@ -77,7 +76,7 @@ export async function bootRobEngine() {
             history.scrollTop = history.scrollHeight;
         }
         if (statusBadge) {
-            statusBadge.style.background = "#a61c1c";
+            statusBadge.className = "status-badge error";
             statusBadge.innerText = "🔴 Boot Failed";
         }
         isBooting = false;

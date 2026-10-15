@@ -8,6 +8,11 @@ export async function loadGeneralTrainingCorpus() {
     const badge = document.getElementById('rag-status');
     logTerm("🤖 [rag.js -> loadGeneralTrainingCorpus] Initiating scan of general_training/ corpus...");
 
+    if (badge) {
+        badge.className = "status-badge loading";
+        badge.innerText = "⏳ Scanning Knowledge Base...";
+    }
+
     try {
         const basePath = getBasePath();
         const manifestUrl = `${basePath}general_training/manifest.json?v=${Date.now()}`;
@@ -35,14 +40,14 @@ export async function loadGeneralTrainingCorpus() {
         }
 
         if (badge) {
-            badge.style.background = "#003366";
+            badge.className = "status-badge active";
             badge.innerText = `🟢 Knowledge Base Active (${generalKnowledgeCorpus.length} Docs Indexed)`;
         }
         logTerm(`🎉 Knowledge corpus synchronization complete.`);
     } catch (err) {
         logTerm(`🔴 CRITICAL RAG Error: ${err.message}`);
         if (badge) {
-            badge.style.background = "#b7791f";
+            badge.className = "status-badge error";
             badge.innerText = `⚠️ Corpus Sync Failed`;
         }
     }

@@ -54,18 +54,23 @@ export async function wipeWebGPUCache() {
     // Lock down input field and send button immediately
     const inputField = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
-    const statusBadge = document.getElementById('engine-status-badge');
+    const engineBadge = document.getElementById('engine-status-badge');
+    const ragBadge = document.getElementById('rag-status');
 
     if (inputField) {
         inputField.disabled = true;
-        inputField.placeholder = "Clearing storage & restarting system...";
+        inputField.placeholder = "Clearing application cache & restarting Rob AI...";
     }
     if (sendBtn) {
         sendBtn.disabled = true;
     }
-    if (statusBadge) {
-        statusBadge.style.background = "#a61c1c";
-        statusBadge.innerText = "🧹 Purging Storage...";
+    if (engineBadge) {
+        engineBadge.className = "status-badge error";
+        engineBadge.innerText = "🧹 Purging Storage...";
+    }
+    if (ragBadge) {
+        ragBadge.className = "status-badge error";
+        ragBadge.innerText = "🧹 Purging Storage...";
     }
 
     logTerm("🧹 [cache.js -> wipeWebGPUCache] User initiated storage purge. Locking UI...");
