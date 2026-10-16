@@ -56,36 +56,45 @@ export async function bootRobEngine() {
             throw new Error("Local WebLLM module failed to load from ./vendor/webllm/index.js.");
         }
 
-        engine = await webllm.CreateMLCEngine(selectedModel, {
+        let loadedEngine = null;
+
+        loadedEngine = await webllm.CreateMLCEngine(selectedModel, {
             appConfig: appConfig,
             initProgressCallback: async (progress) => {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
 
                 if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
-                    logTerm("🔥 Executing WebGPU pipeline warm-up sequence...");
-                    await warmupEngineContext();
-
-                    if (history) {
-                        history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
-                        history.scrollTop = history.scrollHeight;
-                    }
-
-                    if (inputField) {
-                        inputField.disabled = false;
-                        inputField.placeholder = "Type a message to Rob...";
-                    }
-                    if (sendBtn) sendBtn.disabled = false;
-
-                    if (statusBadge) {
-                        statusBadge.className = "status-badge running";
-                        statusBadge.innerText = "🟢 Engine Running";
-                    }
-                    logTerm("🟢 Rob is fully online with active client-side RAG!");
-                    isBooting = false;
+                    logTerm("⚡ WebGPU engine finished loading reported by progress callback.");
                 }
             }
         });
+
+        // Assign to outer scope so getEngine() works immediately
+        engine = loadedEngine;
+
+        // --- SILENT PIPELINE WARM-UP VIA CHAT MODULE ---
+        logTerm("🔥 Executing WebGPU pipeline warm-up sequence...");
+        await warmupEngineContext();
+
+        if (history) {
+            history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
+            history.scrollTop = history.scrollHeight;
+        }
+
+        if (inputField) {
+            inputField.disabled = false;
+            inputField.placeholder = "Type a message to Rob...";
+        }
+        if (sendBtn) sendBtn.disabled = false;
+
+        if (statusBadge) {
+            statusBadge.className = "status-badge running";
+            statusBadge.innerText = "🟢 Engine Running";
+        }
+        logTerm("🟢 Rob is fully online with active client-side RAG!");
+        isBooting = false;
+
     } catch (err) {
         logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
         if (history) {
