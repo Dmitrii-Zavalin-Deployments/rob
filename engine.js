@@ -1,6 +1,7 @@
 import * as webllm from "./vendor/webllm/index.js";
 import { logTerm } from './logger.js';
 import { loadGeneralTrainingCorpus } from './rag.js';
+import { warmupEngineContext } from './chat.js';
 
 console.log("[Module Loaded] engine.js | Functions: bootRobEngine, getEngine");
 
@@ -57,27 +58,12 @@ export async function bootRobEngine() {
             initProgressCallback: (progress) => {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
-
-                if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
-                    logTerm("⚡ WebGPU engine finished loading reported by progress callback.");
-                }
             }
         });
 
-        // --- SILENT WARM-UP RUN (Executed safely after engine assignment) ---
-        logTerm("🔥 Executing background WebGPU shader warm-up inference...");
-        try {
-            const warmupStream = await engine.chat.completions.create({
-                messages: [{ role: "user", content: "hi" }],
-                max_tokens: 1,
-                stream: true
-            });
-            for await (const chunk of warmupStream) { /* consume silent stream */ }
-            logTerm("🔥 WebGPU warm-up completed successfully.");
-        } catch (warmupErr) {
-            logTerm(`⚠️ Warm-up minor note: ${warmupErr.message}`);
-        }
-        // -------------------------------------------------------------------
+        // --- SILENT PIPELINE WARM-UP VIA CHAT MODULE ---
+        logTerm("🔥 Executing WebGPU pipeline warm-up sequence...");
+        await warmupEngineContext();
 
         if (history) {
             history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
