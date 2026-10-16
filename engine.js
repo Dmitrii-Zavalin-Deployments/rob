@@ -1,6 +1,7 @@
 import * as webllm from "./vendor/webllm/index.js";
 import { logTerm } from './logger.js';
 import { loadGeneralTrainingCorpus } from './rag.js';
+import { warmupEngineContext } from './chat.js';
 
 console.log("[Module Loaded] engine.js | Functions: bootRobEngine, getEngine");
 
@@ -57,11 +58,14 @@ export async function bootRobEngine() {
 
         engine = await webllm.CreateMLCEngine(selectedModel, {
             appConfig: appConfig,
-            initProgressCallback: (progress) => {
+            initProgressCallback: async (progress) => {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
 
                 if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
+                    logTerm("🔥 Executing WebGPU pipeline warm-up sequence...");
+                    await warmupEngineContext();
+
                     if (history) {
                         history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
                         history.scrollTop = history.scrollHeight;
