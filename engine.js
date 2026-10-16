@@ -6,7 +6,8 @@ console.log("[Module Loaded] engine.js | Functions: bootRobEngine, getEngine");
 
 let engine = null;
 let isBooting = false;
-const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+// Corrected identifier to match the downloaded Qwen2 weights & config
+const selectedModel = "Qwen2-0.5B-Instruct-q4f16_1-MLC";
 
 // Custom WebLLM App Config pointing 100% locally to GitHub Pages vendor paths
 const appConfig = {
