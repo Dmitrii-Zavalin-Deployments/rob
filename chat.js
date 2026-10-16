@@ -2,11 +2,61 @@ import { logTerm } from './logger.js';
 import { getEngine, bootRobEngine } from './engine.js';
 import { rankAndExtractRelevantSentences } from './rag.js';
 
-console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKeydown, downloadChatAsTxt");
+console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKeydown, downloadChatAsTxt, warmupEngineContext");
 
 // Persistent in-memory dialogue history array for WebLLM multi-turn conversation
 let chatHistoryMessages = [];
 let isGenerating = false;
+
+/**
+ * Silent Warm-up Function
+ * Accepts the engine instance directly to pre-compile WebGPU execution pipelines.
+ */
+export async function warmupEngineContext(engineInstance) {
+    if (!engineInstance) {
+        logTerm("⚠️ Engine unavailable for warm-up sequence.");
+        return;
+    }
+
+    logTerm("🔥 [chat.js -> warmupEngineContext] Sending initialization warm-up payload...");
+    
+    const warmupMessages = [
+        { 
+            role: "system", 
+            content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Be helpful, polite, precise, and conversational." 
+        },
+        { 
+            role: "user", 
+            content: "Hello Rob! We are starting. Please answer all questions concisely, politely, and accurately." 
+        }
+    ];
+
+    try {
+        const asyncChunkGenerator = await engineInstance.chat.completions.create({
+            messages: warmupMessages,
+            temperature: 0.1,
+            max_tokens: 16,
+            stream: true
+        });
+
+        let warmupReply = "";
+        for await (const chunk of asyncChunkGenerator) {
+            const content = chunk.choices[0]?.delta?.content || "";
+            warmupReply += content;
+        }
+
+        // Initialize dialogue history with system prompt & baseline warm-up turn
+        chatHistoryMessages = [
+            warmupMessages[0],
+            warmupMessages[1],
+            { role: "assistant", content: warmupReply }
+        ];
+
+        logTerm("🔥 WebGPU shader compilation & warm-up sequence completed successfully.");
+    } catch (err) {
+        logTerm(`⚠️ Warm-up minor note: ${err.message}`);
+    }
+}
 
 export function handleChatKeydown(event) {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -62,7 +112,7 @@ Use the matched information below to accurately inform your answers.
 --- EXTRACTED RELEVANT INFORMATION ---
 ${ragReferenceText}`;
 
-    // Initialize or refresh System Instruction in conversation history
+    // Update System Instruction in active history
     if (chatHistoryMessages.length === 0) {
         chatHistoryMessages.push({ role: "system", content: systemInstruction });
     } else {
