@@ -63,9 +63,8 @@ ${assembledTxt}`;
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages,
-            temperature: 0.5,
-            top_p: 0.9,
-            max_tokens: 4096,
+            temperature: 0.1,
+            max_tokens: 128,
             stream: true
         });
 
