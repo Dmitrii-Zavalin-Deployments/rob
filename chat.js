@@ -18,13 +18,24 @@ export async function sendChatMessage() {
     const userText = inputField.value.trim();
     let engine = getEngine();
 
-    if (!userText || !engine) return;
+    if (!userText) return;
+
+    // Auto-recover if engine is missing or previously disposed
+    if (!engine) {
+        logTerm("⚠️ Engine instance not ready or disposed. Attempting auto-boot...");
+        await bootRobEngine();
+        engine = getEngine();
+        if (!engine) {
+            history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">Rob Error: WebGPU engine is unavailable.</div>`;
+            return;
+        }
+    }
 
     inputField.disabled = true;
     sendBtn.disabled = true;
 
     logTerm(`💬 [chat.js -> sendChatMessage] User query submitted: "${userText}"`);
-    history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${userText}</div>`;
+    history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${escapeHtml(userText)}</div>`;
     inputField.value = '';
     history.scrollTop = history.scrollHeight;
 
@@ -52,7 +63,7 @@ ${assembledTxt}`;
         { role: "user", content: userText }
     ];
 
-    logTerm(`📝 Messages payload assembled. Executing WebGPU streaming completion (max_tokens: 128)...`);
+    logTerm(`📝 Messages payload assembled. Executing WebGPU streaming completion (max_tokens: 512)...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
@@ -64,7 +75,7 @@ ${assembledTxt}`;
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages,
             temperature: 0.1,
-            max_tokens: 128,
+            max_tokens: 512,
             stream: true
         });
 
@@ -80,8 +91,12 @@ ${assembledTxt}`;
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
-        // Auto-recovery handler for Invalid buffer / Buffer unmapped faults
-        if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
+        // Auto-recovery handler for disposed session context or buffer faults
+        if (err.message && err.message.includes("disposed")) {
+            logTerm(`⚠️ Disposed WebGPU session detected. Re-booting engine session...`);
+            replyDiv.innerText = "Rob: WebGPU session expired. Re-initializing engine context...";
+            await bootRobEngine();
+        } else if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
             logTerm(`⚠️ WebGPU buffer corruption detected. Suggesting cache wipe...`);
             replyDiv.innerText = "Rob Error: WebGPU buffer corrupted. Please click '🧹 Clear Application Cache & Restart Rob AI' to clear old cache files and reboot.";
         } else {
@@ -118,4 +133,14 @@ export function downloadChatAsTxt() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     logTerm("📥 Chat conversation successfully exported as TXT.");
+}
+
+function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    })[m]);
 }
