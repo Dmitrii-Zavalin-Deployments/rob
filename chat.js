@@ -1,6 +1,6 @@
 import { logTerm } from './logger.js';
 import { getEngine, bootRobEngine } from './engine.js';
-import { getCorpus } from './rag.js';
+import { rankAndExtractRelevantSentences } from './rag.js';
 
 console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKeydown, downloadChatAsTxt");
 
@@ -46,24 +46,21 @@ export async function sendChatMessage() {
     inputField.value = '';
     history.scrollTop = history.scrollHeight;
 
-    // Assemble Knowledge Base Corpus
-    let assembledTxt = "";
-    const corpus = getCorpus();
-    if (corpus && corpus.length > 0) {
-        for (let doc of corpus) {
-            assembledTxt += `\n--- START DOCUMENT: ${doc.name} ---\n${doc.content}\n--- END DOCUMENT ---\n`;
-        }
-    } else {
-        assembledTxt = "No reference documents currently loaded.";
-    }
+    // Run Sentence-by-Sentence Combinatorics RAG Extraction
+    logTerm("📡 Looking for the answer in the information sources (see 📡 System Terminal for details)...");
+    const matchedContext = rankAndExtractRelevantSentences(userText);
+
+    let ragReferenceText = matchedContext.length > 0 
+        ? matchedContext 
+        : "No specific sentence matches found in the loaded corpus.";
 
     const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
 Be helpful, polite, precise, and conversational.
 When asked for code, technical architectures, or script modifications, provide complete, clean, and fully functional code blocks.
-If reference knowledge is provided below, use it to accurately inform your answers.
+Use the matched information below to accurately inform your answers.
 
---- KNOWLEDGE BASE REFERENCE ---
-${assembledTxt}`;
+--- EXTRACTED RELEVANT INFORMATION ---
+${ragReferenceText}`;
 
     // Initialize or refresh System Instruction in conversation history
     if (chatHistoryMessages.length === 0) {
