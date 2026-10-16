@@ -8,13 +8,19 @@ let engine = null;
 let isBooting = false;
 const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
-// Custom WebLLM App Config pointing directly to GitHub Pages vendor path
+// Pointing directly to raw GitHub content without Hugging Face /resolve/main subpathing
+const modelBaseUrl = "https://raw.githubusercontent.com/Dmitrii-Zavalin-Deployments/rob/refs/heads/main/vendor/qwen2.5-0.5b/";
+
 const appConfig = {
     model_list: [
         {
-            model: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/qwen2.5-0.5b/",
+            model: modelBaseUrl,
             model_id: selectedModel,
-            model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k-webgpu.wasm"
+            model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k-webgpu.wasm",
+            overrides: {
+                // Prevents WebLLM from appending /resolve/main/
+                format: "raw" 
+            }
         }
     ]
 };
@@ -59,6 +65,7 @@ export async function bootRobEngine() {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
 
+                // Only unlock UI when WebGPU shader compilation & memory mapping are 100% complete
                 if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
                     if (history) {
                         history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
