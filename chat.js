@@ -52,7 +52,7 @@ ${assembledTxt}`;
         { role: "user", content: userText }
     ];
 
-    logTerm(`📝 Messages payload assembled. Executing WebGPU streaming completion (max_tokens: 4096)...`);
+    logTerm(`📝 Messages payload assembled. Executing WebGPU streaming completion (max_tokens: 128)...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
