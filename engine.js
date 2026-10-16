@@ -8,14 +8,14 @@ let engine = null;
 let isBooting = false;
 const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
-// Custom WebLLM App Config pointing 100% locally to GitHub Pages vendor path
+// Custom WebLLM App Config pointing 100% locally to GitHub Pages vendor paths
 const appConfig = {
     model_list: [
         {
             model: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/qwen2.5-0.5b/",
             model_id: selectedModel,
-            // Pointing directly to your local vendored wasm binary
-            model_lib: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/webllm/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k-webgpu.wasm"
+            // Pointing directly to your local vendored Qwen2 WASM binary
+            model_lib: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/webllm/Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm"
         }
     ]
 };
