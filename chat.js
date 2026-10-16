@@ -4,6 +4,10 @@ import { getCorpus } from './rag.js';
 
 console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKeydown, downloadChatAsTxt");
 
+// Persistent in-memory dialogue history array for WebLLM multi-turn conversation
+let chatHistoryMessages = [];
+let isGenerating = false;
+
 export function handleChatKeydown(event) {
     if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
@@ -12,6 +16,8 @@ export function handleChatKeydown(event) {
 }
 
 export async function sendChatMessage() {
+    if (isGenerating) return;
+
     const inputField = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const history = document.getElementById('chat-history');
@@ -20,9 +26,9 @@ export async function sendChatMessage() {
 
     if (!userText) return;
 
-    // Auto-recover if engine is missing or previously disposed
+    // Auto-recover if engine is missing or uninitialized
     if (!engine) {
-        logTerm("⚠️ Engine instance not ready or disposed. Attempting auto-boot...");
+        logTerm("⚠️ Engine instance not ready. Attempting auto-boot...");
         await bootRobEngine();
         engine = getEngine();
         if (!engine) {
@@ -31,6 +37,7 @@ export async function sendChatMessage() {
         }
     }
 
+    isGenerating = true;
     inputField.disabled = true;
     sendBtn.disabled = true;
 
@@ -58,12 +65,17 @@ If reference knowledge is provided below, use it to accurately inform your answe
 --- KNOWLEDGE BASE REFERENCE ---
 ${assembledTxt}`;
 
-    const messages = [
-        { role: "system", content: systemInstruction },
-        { role: "user", content: userText }
-    ];
+    // Initialize or refresh System Instruction in conversation history
+    if (chatHistoryMessages.length === 0) {
+        chatHistoryMessages.push({ role: "system", content: systemInstruction });
+    } else {
+        chatHistoryMessages[0] = { role: "system", content: systemInstruction };
+    }
 
-    logTerm(`📝 Messages payload assembled. Executing WebGPU streaming completion (max_tokens: 512)...`);
+    // Append user message to active context history
+    chatHistoryMessages.push({ role: "user", content: userText });
+
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages). Executing WebGPU stream (max_tokens: 512)...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
@@ -73,8 +85,8 @@ ${assembledTxt}`;
 
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
-            messages,
-            temperature: 0.1,
+            messages: chatHistoryMessages,
+            temperature: 0.2,
             max_tokens: 512,
             stream: true
         });
@@ -87,14 +99,18 @@ ${assembledTxt}`;
             history.scrollTop = history.scrollHeight;
         }
 
+        // Store Rob's answer in dialogue history for subsequent turns
+        chatHistoryMessages.push({ role: "assistant", content: fullText });
+
         logTerm(`✅ Streaming response completed successfully (${fullText.length} characters).`);
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
         // Auto-recovery handler for disposed session context or buffer faults
         if (err.message && err.message.includes("disposed")) {
-            logTerm(`⚠️ Disposed WebGPU session detected. Re-booting engine session...`);
+            logTerm(`⚠️ Disposed WebGPU session detected. Resetting history and re-booting engine session...`);
             replyDiv.innerText = "Rob: WebGPU session expired. Re-initializing engine context...";
+            chatHistoryMessages = []; // Clear broken context window
             await bootRobEngine();
         } else if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
             logTerm(`⚠️ WebGPU buffer corruption detected. Suggesting cache wipe...`);
@@ -103,6 +119,7 @@ ${assembledTxt}`;
             replyDiv.innerText = "Rob Error: " + err.message;
         }
     } finally {
+        isGenerating = false;
         inputField.disabled = false;
         sendBtn.disabled = false;
         inputField.focus();
