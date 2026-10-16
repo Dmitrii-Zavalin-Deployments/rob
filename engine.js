@@ -7,16 +7,13 @@ console.log("[Module Loaded] engine.js | Functions: bootRobEngine, getEngine");
 
 let engine = null;
 let isBooting = false;
-// Corrected identifier to match the downloaded Qwen2 weights & config
 const selectedModel = "Qwen2-0.5B-Instruct-q4f16_1-MLC";
 
-// Custom WebLLM App Config pointing 100% locally to GitHub Pages vendor paths
 const appConfig = {
     model_list: [
         {
             model: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/qwen2-0.5b/",
             model_id: selectedModel,
-            // Pointing directly to your local vendored Qwen2 WASM binary
             model_lib: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/webllm/Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm"
         }
     ]
@@ -56,9 +53,7 @@ export async function bootRobEngine() {
             throw new Error("Local WebLLM module failed to load from ./vendor/webllm/index.js.");
         }
 
-        let loadedEngine = null;
-
-        loadedEngine = await webllm.CreateMLCEngine(selectedModel, {
+        engine = await webllm.CreateMLCEngine(selectedModel, {
             appConfig: appConfig,
             initProgressCallback: async (progress) => {
                 const pct = Math.round(progress.progress * 100);
@@ -70,12 +65,9 @@ export async function bootRobEngine() {
             }
         });
 
-        // Assign to outer scope so getEngine() works immediately
-        engine = loadedEngine;
-
-        // --- SILENT PIPELINE WARM-UP VIA CHAT MODULE ---
+        // --- SILENT PIPELINE WARM-UP PASSING ENGINE EXPLICITLY ---
         logTerm("🔥 Executing WebGPU pipeline warm-up sequence...");
-        await warmupEngineContext();
+        await warmupEngineContext(engine);
 
         if (history) {
             history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
