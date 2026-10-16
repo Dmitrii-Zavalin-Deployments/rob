@@ -1,4 +1,4 @@
-import * as webllm from "./vendor/index.js";
+import * as webllm from "./vendor/webllm/index.js";
 import { logTerm } from './logger.js';
 import { loadGeneralTrainingCorpus } from './rag.js';
 
@@ -8,12 +8,11 @@ let engine = null;
 let isBooting = false;
 const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
 
-// Custom WebLLM App Config pointing directly to your GitHub Release Assets
+// Custom WebLLM App Config pointing directly to GitHub Pages vendor path
 const appConfig = {
     model_list: [
         {
-            // Pointing to your GitHub Release asset base URL
-            model: "https://github.com/Dmitrii-Zavalin-Deployments/rob/releases/download/v1.0-base-model/",
+            model: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/qwen2.5-0.5b/",
             model_id: selectedModel,
             model_lib: "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/Qwen2.5-0.5B-Instruct-q4f16_1-ctx4k-webgpu.wasm"
         }
@@ -43,7 +42,7 @@ export async function bootRobEngine() {
         engine = null;
     }
 
-    logTerm(`⚡ Initializing local WebGPU engine from GitHub Release for model: ${selectedModel}`);
+    logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
     if (history) {
         history.innerHTML = `<div class="chat-msg chat-rob">Rob: Initializing local WebGPU engine... Please wait.</div>`;
         history.scrollTop = history.scrollHeight;
@@ -51,7 +50,7 @@ export async function bootRobEngine() {
 
     try {
         if (!webllm || !webllm.CreateMLCEngine) {
-            throw new Error("Local WebLLM module failed to load from ./vendor/index.js.");
+            throw new Error("Local WebLLM module failed to load from ./vendor/webllm/index.js.");
         }
 
         engine = await webllm.CreateMLCEngine(selectedModel, {
@@ -60,7 +59,6 @@ export async function bootRobEngine() {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
 
-                // Only unlock UI when WebGPU shader compilation & memory mapping are 100% complete
                 if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
                     if (history) {
                         history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
