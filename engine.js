@@ -6,16 +6,13 @@ console.log("[Module Loaded] engine.js | Functions: bootRobEngine, getEngine");
 
 let engine = null;
 let isBooting = false;
-// Corrected identifier to match the downloaded Qwen2 weights & config
 const selectedModel = "Qwen2-0.5B-Instruct-q4f16_1-MLC";
 
-// Custom WebLLM App Config pointing 100% locally to GitHub Pages vendor paths
 const appConfig = {
     model_list: [
         {
             model: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/qwen2-0.5b/",
             model_id: selectedModel,
-            // Pointing directly to your local vendored Qwen2 WASM binary
             model_lib: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/webllm/Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm"
         }
     ]
@@ -57,11 +54,26 @@ export async function bootRobEngine() {
 
         engine = await webllm.CreateMLCEngine(selectedModel, {
             appConfig: appConfig,
-            initProgressCallback: (progress) => {
+            initProgressCallback: async (progress) => {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
 
                 if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
+                    // --- SILENT WARM-UP RUN TO ELIMINATE FIRST-QUERY LAG ---
+                    logTerm("🔥 Executing background WebGPU shader warm-up inference...");
+                    try {
+                        const warmupStream = await engine.chat.completions.create({
+                            messages: [{ role: "user", content: "hi" }],
+                            max_tokens: 1,
+                            stream: true
+                        });
+                        for await (const chunk of warmupStream) { /* consume silent stream */ }
+                        logTerm("🔥 WebGPU warm-up completed successfully.");
+                    } catch (warmupErr) {
+                        logTerm(`⚠️ Warm-up minor note: ${warmupErr.message}`);
+                    }
+                    // -----------------------------------------------------
+
                     if (history) {
                         history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
                         history.scrollTop = history.scrollHeight;
