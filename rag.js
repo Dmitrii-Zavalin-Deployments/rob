@@ -1,6 +1,6 @@
 import { logTerm, getBasePath } from './logger.js';
 
-console.log("[Module Loaded] rag.js | Functions: loadGeneralTrainingCorpus, getCorpus");
+console.log("[Module Loaded] rag.js | Functions: loadGeneralTrainingCorpus, getCorpus, rankAndExtractRelevantSentences");
 
 let generalKnowledgeCorpus = [];
 
@@ -55,4 +55,78 @@ export async function loadGeneralTrainingCorpus() {
 
 export function getCorpus() {
     return generalKnowledgeCorpus;
+}
+
+/**
+ * Sentence-by-Sentence Combinatorics Matcher
+ * Compares user query sentences against document sentences and logs matches in the terminal.
+ */
+export function rankAndExtractRelevantSentences(userQuery) {
+    if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
+        logTerm("⚠️ RAG Combinatorics: No corpus files loaded.");
+        return "";
+    }
+
+    logTerm("📡 [rag.js -> RAG Combinatorics] Starting sentence-by-sentence matrix scan...");
+
+    const querySentences = splitIntoSentences(userQuery);
+    logTerm(`🔍 Query decomposed into ${querySentences.length} sentence(s).`);
+
+    const matchedSentences = new Set();
+
+    for (const doc of generalKnowledgeCorpus) {
+        logTerm(`📄 Scanning document: "${doc.name}"...`);
+        const docSentences = splitIntoSentences(doc.content);
+        
+        for (let qIdx = 0; qIdx < querySentences.length; qIdx++) {
+            const qSent = querySentences[qIdx];
+            const qTokens = extractKeywords(qSent);
+            if (qTokens.length === 0) continue;
+
+            for (let dIdx = 0; dIdx < docSentences.length; dIdx++) {
+                const dSent = docSentences[dIdx];
+                const dTokens = extractKeywords(dSent);
+
+                const score = calculateOverlapScore(qTokens, dTokens);
+
+                if (score > 0.20) { // Relevance threshold
+                    logTerm(`🎯 MATCH FOUND [Score: ${Math.round(score * 100)}%] | Query S#${qIdx + 1} ↔ Doc S#${dIdx + 1}: "${dSent.trim()}"`);
+                    matchedSentences.add(dSent.trim());
+                }
+            }
+        }
+    }
+
+    const matchedArray = Array.from(matchedSentences);
+    logTerm(`📊 Combinatorics Scan Complete: ${matchedArray.length} relevant sentence(s) matched.`);
+
+    return matchedArray.join(" ");
+}
+
+function splitIntoSentences(text) {
+    return text
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 5);
+}
+
+function extractKeywords(sentence) {
+    const stopwords = new Set(["the", "is", "at", "which", "on", "a", "an", "and", "or", "to", "in", "you", "do", "know", "about", "what", "this", "it", "its", "are", "of", "for", "with"]);
+    return sentence
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !stopwords.has(w));
+}
+
+function calculateOverlapScore(qTokens, dTokens) {
+    let matches = 0;
+    const dSet = new Set(dTokens);
+
+    for (const token of qTokens) {
+        if (dSet.has(token)) matches++;
+    }
+
+    if (qTokens.length === 0) return 0;
+    return matches / qTokens.length;
 }

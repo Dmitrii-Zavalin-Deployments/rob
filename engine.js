@@ -1,21 +1,19 @@
 import * as webllm from "./vendor/webllm/index.js";
 import { logTerm } from './logger.js';
 import { loadGeneralTrainingCorpus } from './rag.js';
+import { warmupEngineContext } from './chat.js';
 
 console.log("[Module Loaded] engine.js | Functions: bootRobEngine, getEngine");
 
 let engine = null;
 let isBooting = false;
-// Corrected identifier to match the downloaded Qwen2 weights & config
 const selectedModel = "Qwen2-0.5B-Instruct-q4f16_1-MLC";
 
-// Custom WebLLM App Config pointing 100% locally to GitHub Pages vendor paths
 const appConfig = {
     model_list: [
         {
             model: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/qwen2-0.5b/",
             model_id: selectedModel,
-            // Pointing directly to your local vendored Qwen2 WASM binary
             model_lib: "https://dmitrii-zavalin-deployments.github.io/rob/vendor/webllm/Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm"
         }
     ]
@@ -57,31 +55,38 @@ export async function bootRobEngine() {
 
         engine = await webllm.CreateMLCEngine(selectedModel, {
             appConfig: appConfig,
-            initProgressCallback: (progress) => {
+            initProgressCallback: async (progress) => {
                 const pct = Math.round(progress.progress * 100);
                 logTerm(`⚡ WebGPU Loading [${pct}%]: ${progress.text}`);
 
                 if (progress.text && progress.text.includes("Finish loading on WebGPU")) {
-                    if (history) {
-                        history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
-                        history.scrollTop = history.scrollHeight;
-                    }
-
-                    if (inputField) {
-                        inputField.disabled = false;
-                        inputField.placeholder = "Type a message to Rob...";
-                    }
-                    if (sendBtn) sendBtn.disabled = false;
-
-                    if (statusBadge) {
-                        statusBadge.className = "status-badge running";
-                        statusBadge.innerText = "🟢 Engine Running";
-                    }
-                    logTerm("🟢 Rob is fully online with active client-side RAG!");
-                    isBooting = false;
+                    logTerm("⚡ WebGPU engine finished loading reported by progress callback.");
                 }
             }
         });
+
+        // --- SILENT PIPELINE WARM-UP PASSING ENGINE EXPLICITLY ---
+        logTerm("🔥 Executing WebGPU pipeline warm-up sequence...");
+        await warmupEngineContext(engine);
+
+        if (history) {
+            history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
+            history.scrollTop = history.scrollHeight;
+        }
+
+        if (inputField) {
+            inputField.disabled = false;
+            inputField.placeholder = "Type a message to Rob...";
+        }
+        if (sendBtn) sendBtn.disabled = false;
+
+        if (statusBadge) {
+            statusBadge.className = "status-badge running";
+            statusBadge.innerText = "🟢 Engine Running";
+        }
+        logTerm("🟢 Rob is fully online with active client-side RAG!");
+        isBooting = false;
+
     } catch (err) {
         logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
         if (history) {
