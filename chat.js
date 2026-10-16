@@ -10,11 +10,10 @@ let isGenerating = false;
 
 /**
  * Silent Warm-up Function
- * Pre-compiles WebGPU execution pipelines using a lightweight greeting query.
+ * Accepts the engine instance directly to pre-compile WebGPU execution pipelines.
  */
-export async function warmupEngineContext() {
-    const engine = getEngine();
-    if (!engine) {
+export async function warmupEngineContext(engineInstance) {
+    if (!engineInstance) {
         logTerm("⚠️ Engine unavailable for warm-up sequence.");
         return;
     }
@@ -33,7 +32,7 @@ export async function warmupEngineContext() {
     ];
 
     try {
-        const asyncChunkGenerator = await engine.chat.completions.create({
+        const asyncChunkGenerator = await engineInstance.chat.completions.create({
             messages: warmupMessages,
             temperature: 0.1,
             max_tokens: 16,
