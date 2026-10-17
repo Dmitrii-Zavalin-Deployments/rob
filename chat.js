@@ -260,7 +260,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
             temperature: hasKnowledgeMatch ? 0.0 : 0.5, // Updated to 0.5 for creative mode
-            max_tokens: 384, // Capped to prevent Windows TDR GPU driver timeout
+            max_tokens: hasKnowledgeMatch ? 256 : 512, // Scaled for larger RAG docs, expansive for creative
             stream: true
         });
 
