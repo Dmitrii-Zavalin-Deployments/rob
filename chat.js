@@ -266,7 +266,7 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
                         ⚠️ WebGPU Hardware Limit Reached (Windows GPU Reset)
                     </p>
                     <p style="margin: 0 0 10px 0; font-size: 0.9em; color: #ddd;">
-                        Your Windows GPU driver dropped the WebGPU context due to memory constraints. Please <b>download your transcript</b> below, then <b>completely close and restart your browser</b> to clear the hardware queue before launching Rob again.
+                        Your Windows GPU driver dropped the WebGPU context due to memory constraints. Please <b>download your transcript</b> below, then <b>completely close and restart your browser</b> to clear the hardware queue before launching next session with Rob.
                     </p>
                     <div style="display: flex; gap: 8px;">
                         <button id="recovery-download-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
