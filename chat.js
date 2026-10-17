@@ -96,8 +96,14 @@ export async function sendChatMessage() {
     inputField.value = '';
     history.scrollTop = history.scrollHeight;
 
+    // Display system search status in chat window & log to terminal
+    const searchStatusText = "Looking for the answer in the text files from general_training/ (see 📡 System Terminal for details)";
+    logTerm(`📡 ${searchStatusText}`);
+    
+    history.innerHTML += `<div class="chat-msg chat-system" style="color: #7f8c8d; font-style: italic; margin: 4px 0;">📡 ${searchStatusText}</div>`;
+    history.scrollTop = history.scrollHeight;
+
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    logTerm("📡 Looking for the answer in the information sources (see 📡 System Terminal for details)...");
     const matchedContext = rankAndExtractRelevantSentences(userText);
 
     let ragReferenceText = matchedContext.length > 0 
@@ -130,7 +136,7 @@ ${ragReferenceText}`;
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
-    replyDiv.innerText = "Rob: ";
+    replyDiv.innerHTML = "<b>Rob:</b> ";
     history.appendChild(replyDiv);
     history.scrollTop = history.scrollHeight;
 
@@ -146,7 +152,13 @@ ${ragReferenceText}`;
         for await (const chunk of asyncChunkGenerator) {
             const content = chunk.choices[0]?.delta?.content || "";
             fullText += content;
-            replyDiv.innerText = "Rob: " + fullText;
+
+            // Render Markdown if available, otherwise display plain formatted text
+            if (typeof window.marked !== 'undefined' && window.marked.parse) {
+                replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fullText);
+            } else {
+                replyDiv.innerText = "Rob: " + fullText;
+            }
             history.scrollTop = history.scrollHeight;
         }
 
