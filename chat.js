@@ -123,22 +123,22 @@ export function handleChatKeydown(event) {
  * Formats System Instructions based on desired generation mode.
  */
 function buildSystemInstruction(hasKnowledgeMatch, matchedContext) {
+    const baseIdentity = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Your name is Rob. Never claim to be Dmitrii Zavalin or confuse your identity with the user. Do not repeat greeting introductions or boilerplate self-identifications in multi-turn conversations; answer the user's question directly.`;
+
     if (hasKnowledgeMatch) {
         const formattedContext = Array.isArray(matchedContext) ? matchedContext.join("\n") : matchedContext;
-        return `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
-Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin or confuse your identity with the user.
+        return `${baseIdentity}
 
 STRICT KNOWLEDGE BASE INSTRUCTIONS:
 1. Relevant information was found in the general_training/ corpus for this user query.
 2. You MUST answer STRICTLY AND ONLY using the facts provided in the REFERENCE CONTEXT below.
-3. For any sub-topic, question, or aspect asked by the user that IS NOT explicitly documented in the reference context below (e.g. specific experiments, dates, or additional features), state clearly: "No information regarding [specific topic] is available in the general_training/ corpus."
-4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary projects, cryptocurrencies, or details.
+3. For any sub-topic, question, or aspect asked by the user that IS NOT explicitly documented in the reference context below (e.g. specific experiments, expeditions, dates, or additional features), state clearly: "No information regarding [specific topic] is available in the general_training/ corpus."
+4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary details.
 
 --- EXTRACTED REFERENCE CONTEXT ---
 ${formattedContext}`;
     } else {
-        return `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
-Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin.
+        return `${baseIdentity}
 Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
     }
 }
