@@ -108,25 +108,24 @@ export async function sendChatMessage() {
     history.scrollTop = history.scrollHeight;
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    const matchedContext = rankAndExtractRelevantSentences(userText);
-    const hasKnowledgeMatch = matchedContext && matchedContext.length > 0;
+    const matchedSentences = rankAndExtractRelevantSentences(userText);
+    const hasKnowledgeMatch = matchedSentences && matchedSentences.length > 0;
 
     let systemInstruction = "";
 
     if (hasKnowledgeMatch) {
-        // STRICT KNOWLEDGE MODE (Triggered when matchedContext finds relevant training data)
+        const formattedContext = matchedSentences.join("\n");
+
         systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
 
-STRICT KNOWLEDGE BASE INSTRUCTIONS:
-1. Relevant information was found in the general_training/ corpus for this user query.
-2. You MUST answer STRICTLY AND ONLY using the facts provided in the REFERENCE CONTEXT below.
-3. For any sub-topic, question, or aspect asked by the user that IS NOT explicitly documented in the reference context below (e.g. specific experiments, dates, or additional features), state clearly: "No information regarding [specific topic] is available in the general_training/ corpus."
-4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary projects, cryptocurrencies, or details.
+Informed Response Mode:
+1. Base your statements strictly on the facts provided in the REFERENCE CONTEXT below.
+2. If the user asks about details or sub-topics not written in the context (such as specific experiments), state that no information regarding that specific detail is available in the training corpus.
+3. Do not invent or fabricate outside projects or coins.
 
---- EXTRACTED REFERENCE CONTEXT ---
-${matchedContext}`;
+--- REFERENCE CONTEXT ---
+${formattedContext}`;
     } else {
-        // GENERAL CONVERSATION MODE (Triggered for general chit-chat like "Hi Rob!" or "How is it going?")
         systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
 Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
     }
@@ -152,7 +151,7 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: hasKnowledgeMatch ? 0.0 : 0.4, // Temperature 0 for strict factual compliance
+            temperature: hasKnowledgeMatch ? 0.1 : 0.4,
             max_tokens: 512,
             stream: true
         });
@@ -162,7 +161,6 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
             const content = chunk.choices[0]?.delta?.content || "";
             fullText += content;
 
-            // Render Markdown if available, otherwise display plain text with bold prefix
             if (typeof window.marked !== 'undefined' && window.marked.parse) {
                 replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fullText);
             } else {
@@ -178,11 +176,10 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
-        // Auto-recovery handler for disposed session context or buffer faults
         if (err.message && err.message.includes("disposed")) {
             logTerm(`⚠️ Disposed WebGPU session detected. Resetting history and re-booting engine session...`);
             replyDiv.innerText = "Rob: WebGPU session expired. Re-initializing engine context...";
-            chatHistoryMessages = []; // Clear broken context window
+            chatHistoryMessages = [];
             await bootRobEngine();
         } else if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
             logTerm(`⚠️ WebGPU buffer corruption detected. Suggesting cache wipe...`);
@@ -191,7 +188,6 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
             replyDiv.innerText = "Rob Error: " + err.message;
         }
     } finally {
-        // Remove the temporary search status element once response completes
         if (statusDiv && statusDiv.parentNode) {
             statusDiv.parentNode.removeChild(statusDiv);
         }
