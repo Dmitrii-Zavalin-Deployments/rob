@@ -58,7 +58,7 @@ export async function bootRobEngine() {
             const adapter = await navigator.gpu.requestAdapter();
             
             if (!adapter) {
-                throw new Error("WebGPU adapter unavailable. Please check if hardware acceleration is enabled in your browser.");
+                throw new Error("WebGPU adapter unavailable. Please restart the browser or check if hardware acceleration is enabled in your browser.");
             }
 
             if (adapter.limits && adapter.limits.maxComputeWorkgroupStorageSize < 32768) {
