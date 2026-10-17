@@ -9,6 +9,62 @@ let chatHistoryMessages = [];
 let isGenerating = false;
 
 /**
+ * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
+ */
+function getSimilarityScore(str1, str2) {
+    const s1 = str1.toLowerCase().trim();
+    const s2 = str2.toLowerCase().trim();
+    if (s1 === s2) return 1.0;
+    
+    const words1 = new Set(s1.split(/\s+/));
+    const words2 = new Set(s2.split(/\s+/));
+    
+    let intersection = 0;
+    for (let word of words1) {
+        if (words2.has(word)) intersection++;
+    }
+    
+    const union = new Set([...words1, ...words2]).size;
+    return union === 0 ? 0 : (intersection / union);
+}
+
+/**
+ * Scans chatHistoryMessages for previous user turns similar to incomingUserText.
+ * If a match (>= similarityThreshold) is found, prunes that user turn and its assistant reply.
+ */
+function deduplicateChatHistory(history, incomingUserText, similarityThreshold = 0.6) {
+    if (history.length <= 1) return history; // System prompt only
+
+    const cleanedHistory = [];
+    let i = 0;
+
+    // Preserve System Prompt (Index 0)
+    cleanedHistory.push(history[0]);
+
+    // Iterate through remaining user/assistant turns
+    for (i = 1; i < history.length; i++) {
+        const msg = history[i];
+
+        if (msg.role === 'user') {
+            const similarity = getSimilarityScore(msg.content, incomingUserText);
+            
+            if (similarity >= similarityThreshold) {
+                logTerm(`🧹 [chat.js -> Deduplication] Found similar previous query (${Math.round(similarity * 100)}% match): "${msg.content}". Pruning old turn pair from memory.`);
+                
+                // Skip this user message AND the following assistant response if present
+                if (i + 1 < history.length && history[i + 1].role === 'assistant') {
+                    i++; 
+                }
+                continue;
+            }
+        }
+        cleanedHistory.push(msg);
+    }
+
+    return cleanedHistory;
+}
+
+/**
  * Silent Warm-up Function
  * Accepts the engine instance directly to pre-compile WebGPU execution pipelines.
  */
@@ -107,8 +163,20 @@ export async function sendChatMessage() {
     history.appendChild(statusDiv);
     history.scrollTop = history.scrollHeight;
 
+    // Resolve implicit pronouns ("it", "this", "that") using recent history for RAG lookup
+    let ragSearchQuery = userText;
+    const implicitPronouns = /\b(it|its|they|them|their|this|that)\b/i;
+
+    if (implicitPronouns.test(userText) && chatHistoryMessages.length > 2) {
+        const lastUserMsg = [...chatHistoryMessages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) {
+            ragSearchQuery = `${lastUserMsg.content} ${userText}`;
+            logTerm(`🔄 [chat.js -> Pronoun Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
+        }
+    }
+
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    const matchedContext = rankAndExtractRelevantSentences(userText);
+    const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
     const hasKnowledgeMatch = matchedContext && matchedContext.length > 0;
 
     let systemInstruction = "";
@@ -140,18 +208,13 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
         chatHistoryMessages[0] = { role: "system", content: systemInstruction };
     }
 
-    // Append user message to active context history
+    // Prune previous near-duplicate query turns from memory array
+    chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
+
+    // Append new user message to active context history
     chatHistoryMessages.push({ role: "user", content: userText });
 
-    // Enforce history window cap to prevent VRAM exhaustion on laptops (System prompt + last 8 turns)
-    if (chatHistoryMessages.length > 9) {
-        chatHistoryMessages = [
-            chatHistoryMessages[0],
-            ...chatHistoryMessages.slice(-8)
-        ];
-    }
-
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages | Strict Mode: ${hasKnowledgeMatch}). Executing WebGPU stream (max_tokens: 384)...`);
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Strict Mode: ${hasKnowledgeMatch}). Executing WebGPU stream (max_tokens: 384)...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
@@ -163,7 +226,7 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
             temperature: hasKnowledgeMatch ? 0.0 : 0.4,
-            max_tokens: 384, // Optimized for laptop hardware stability
+            max_tokens: 384, // Capped to prevent Windows TDR GPU driver timeout
             stream: true
         });
 
@@ -196,7 +259,7 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
         );
 
         if (isGpuCrash) {
-            logTerm("⚠️ GPU context limit reached. Prompting user to save transcript and restart.");
+            logTerm("⚠️ GPU context reset encountered. Displaying manual export and recovery controls.");
             replyDiv.innerHTML = `
                 <div style="background: rgba(255, 69, 58, 0.15); border: 1px solid #ff453a; padding: 12px; border-radius: 8px; margin: 8px 0;">
                     <p style="margin: 0 0 6px 0; color: #ff6b6b; font-weight: bold;">
