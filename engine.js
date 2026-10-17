@@ -53,6 +53,16 @@ export async function bootRobEngine() {
             throw new Error("Local WebLLM module failed to load from ./vendor/webllm/index.js.");
         }
 
+        // Pre-flight check for desktop-grade WebGPU workgroup storage support
+        if (navigator.gpu) {
+            const adapter = await navigator.gpu.requestAdapter();
+            if (adapter && adapter.limits.maxComputeWorkgroupStorageSize < 32768) {
+                throw new Error(`Unsupported device: Constrained GPU detected (workgroup storage limit: ${adapter.limits.maxComputeWorkgroupStorageSize} bytes). Recommended device to run: desktop computer or laptop with Microsoft Windows (Desktop WebGPU 32KB+ required).`);
+            }
+        } else {
+            throw new Error("Unsupported device: WebGPU is not supported in this browser environment. Recommended device to run: desktop computer or laptop with Microsoft Windows.");
+        }
+
         engine = await webllm.CreateMLCEngine(selectedModel, {
             appConfig: appConfig,
             initProgressCallback: async (progress) => {
