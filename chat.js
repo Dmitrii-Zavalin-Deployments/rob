@@ -107,7 +107,11 @@ export async function sendChatMessage() {
     const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
 Be helpful, polite, precise, and conversational.
 When asked for code, technical architectures, or script modifications, provide complete, clean, and fully functional code blocks.
-Use the matched information below to accurately inform your answers.
+
+CRITICAL INSTRUCTION:
+Base your answers strictly and ONLY on the provided reference information below. 
+Do NOT speculate, assume, or fabricate any unmentioned technologies, sub-projects, or details. 
+If the information requested is not present in the reference text, state clearly that it is not documented in the reference sources.
 
 --- EXTRACTED RELEVANT INFORMATION ---
 ${ragReferenceText}`;
@@ -133,7 +137,7 @@ ${ragReferenceText}`;
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: 0.2,
+            temperature: 0.1,
             max_tokens: 512,
             stream: true
         });
