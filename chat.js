@@ -7,6 +7,7 @@ console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKey
 // Persistent in-memory dialogue history array for WebLLM multi-turn conversation
 let chatHistoryMessages = [];
 let isGenerating = false;
+let activeActionCard = null; // Tracks current mode action card in UI
 
 /**
  * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
@@ -38,10 +39,8 @@ function deduplicateChatHistory(history, incomingUserText, similarityThreshold =
     const cleanedHistory = [];
     let i = 0;
 
-    // Preserve System Prompt (Index 0)
     cleanedHistory.push(history[0]);
 
-    // Iterate through remaining user/assistant turns
     for (i = 1; i < history.length; i++) {
         const msg = history[i];
 
@@ -51,7 +50,6 @@ function deduplicateChatHistory(history, incomingUserText, similarityThreshold =
             if (similarity >= similarityThreshold) {
                 logTerm(`🧹 [chat.js -> Deduplication] Found similar previous query (${Math.round(similarity * 100)}% match): "${msg.content}". Pruning old turn pair from memory.`);
                 
-                // Skip this user message AND the following assistant response if present
                 if (i + 1 < history.length && history[i + 1].role === 'assistant') {
                     i++; 
                 }
@@ -121,13 +119,52 @@ export function handleChatKeydown(event) {
     }
 }
 
-export async function sendChatMessage() {
+/**
+ * Formats System Instructions based on desired generation mode.
+ */
+function buildSystemInstruction(hasKnowledgeMatch, matchedContext) {
+    if (hasKnowledgeMatch) {
+        const formattedContext = Array.isArray(matchedContext) ? matchedContext.join("\n") : matchedContext;
+        return `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
+Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin or confuse your identity with the user.
+
+STRICT KNOWLEDGE BASE INSTRUCTIONS:
+1. Relevant information was found in the general_training/ corpus for this user query.
+2. You MUST answer STRICTLY AND ONLY using the facts provided in the REFERENCE CONTEXT below.
+3. For any sub-topic, question, or aspect asked by the user that IS NOT explicitly documented in the reference context below (e.g. specific experiments, dates, or additional features), state clearly: "No information regarding [specific topic] is available in the general_training/ corpus."
+4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary projects, cryptocurrencies, or details.
+
+--- EXTRACTED REFERENCE CONTEXT ---
+${formattedContext}`;
+    } else {
+        return `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
+Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin.
+Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
+    }
+}
+
+/**
+ * Clears active Action Controls card when continuing discussion.
+ */
+function finalizePreviousActionCard() {
+    if (activeActionCard && activeActionCard.parentNode) {
+        activeActionCard.parentNode.removeChild(activeActionCard);
+        activeActionCard = null;
+    }
+}
+
+export async function sendChatMessage(forceMode = null, targetReplyDiv = null, lastUserQuery = null) {
     if (isGenerating) return;
+
+    finalizePreviousActionCard();
 
     const inputField = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const history = document.getElementById('chat-history');
-    const userText = inputField.value.trim();
+    
+    const isRedo = forceMode !== null && targetReplyDiv !== null;
+    const userText = isRedo ? lastUserQuery : inputField.value.trim();
+
     let engine = getEngine();
 
     if (!userText) return;
@@ -147,10 +184,14 @@ export async function sendChatMessage() {
     inputField.disabled = true;
     sendBtn.disabled = true;
 
-    logTerm(`💬 [chat.js -> sendChatMessage] User query submitted: "${userText}"`);
-    history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${escapeHtml(userText)}</div>`;
-    inputField.value = '';
-    history.scrollTop = history.scrollHeight;
+    if (!isRedo) {
+        logTerm(`💬 [chat.js -> sendChatMessage] User query submitted: "${userText}"`);
+        history.innerHTML += `<div class="chat-msg chat-user"><b>You:</b> ${escapeHtml(userText)}</div>`;
+        inputField.value = '';
+        history.scrollTop = history.scrollHeight;
+    } else {
+        logTerm(`🔄 [chat.js -> Regeneration] User requested re-generation in mode: ${forceMode}`);
+    }
 
     // Display temporary system search status in chat window & log to terminal
     const searchStatusText = "Looking for the answer in the text files from general_training/ (see 📡 System Terminal for details)";
@@ -165,41 +206,28 @@ export async function sendChatMessage() {
 
     // Resolve implicit pronouns ("it", "this", "that") using recent history for RAG lookup
     let ragSearchQuery = userText;
-    const implicitPronouns = /\b(it|its|they|them|their|this|that)\b/i;
+    const implicitPronouns = /\b(it|its|they|them|their|this|that|project|topic|discussing)\b/i;
 
     if (implicitPronouns.test(userText) && chatHistoryMessages.length > 2) {
         const lastUserMsg = [...chatHistoryMessages].reverse().find(m => m.role === 'user');
         if (lastUserMsg) {
             ragSearchQuery = `${lastUserMsg.content} ${userText}`;
-            logTerm(`🔄 [chat.js -> Pronoun Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
+            logTerm(`🔄 [chat.js -> Query Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
         }
     }
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
     const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
-    const hasKnowledgeMatch = matchedContext && matchedContext.length > 0;
+    let hasKnowledgeMatch = matchedContext && matchedContext.length > 0;
 
-    let systemInstruction = "";
-
-    if (hasKnowledgeMatch) {
-        const formattedContext = Array.isArray(matchedContext) ? matchedContext.join("\n") : matchedContext;
-
-        systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
-Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin or confuse your identity with the user.
-
-STRICT KNOWLEDGE BASE INSTRUCTIONS:
-1. Relevant information was found in the general_training/ corpus for this user query.
-2. You MUST answer STRICTLY AND ONLY using the facts provided in the REFERENCE CONTEXT below.
-3. For any sub-topic, question, or aspect asked by the user that IS NOT explicitly documented in the reference context below (e.g. specific experiments, dates, or additional features), state clearly: "No information regarding [specific topic] is available in the general_training/ corpus."
-4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary projects, cryptocurrencies, or details.
-
---- EXTRACTED REFERENCE CONTEXT ---
-${formattedContext}`;
-    } else {
-        systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
-Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin.
-Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
+    // Apply manual mode override if user clicked a Redo button
+    if (forceMode === 'creative') {
+        hasKnowledgeMatch = false;
+    } else if (forceMode === 'strict') {
+        hasKnowledgeMatch = true;
     }
+
+    const systemInstruction = buildSystemInstruction(hasKnowledgeMatch, matchedContext);
 
     // Update System Instruction in active history
     if (chatHistoryMessages.length === 0) {
@@ -208,18 +236,24 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
         chatHistoryMessages[0] = { role: "system", content: systemInstruction };
     }
 
-    // Prune previous near-duplicate query turns from memory array
-    chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
+    if (!isRedo) {
+        chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
+        chatHistoryMessages.push({ role: "user", content: userText });
+    } else {
+        // If re-generating, remove previous assistant turn from memory array
+        if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'assistant') {
+            chatHistoryMessages.pop();
+        }
+    }
 
-    // Append new user message to active context history
-    chatHistoryMessages.push({ role: "user", content: userText });
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (max_tokens: 384)...`);
 
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Strict Mode: ${hasKnowledgeMatch}). Executing WebGPU stream (max_tokens: 384)...`);
-
-    const replyDiv = document.createElement("div");
-    replyDiv.className = "chat-msg chat-rob";
+    const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
+    if (!isRedo) {
+        replyDiv.className = "chat-msg chat-rob";
+        history.appendChild(replyDiv);
+    }
     replyDiv.innerHTML = "<b>Rob:</b> ";
-    history.appendChild(replyDiv);
     history.scrollTop = history.scrollHeight;
 
     try {
@@ -247,6 +281,10 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
         chatHistoryMessages.push({ role: "assistant", content: fullText });
 
         logTerm(`✅ Streaming response completed successfully (${fullText.length} characters).`);
+
+        // Render interactive Mode Action Badge UI below response
+        renderModeActionCard(replyDiv, hasKnowledgeMatch, userText);
+
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
@@ -295,6 +333,63 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
         sendBtn.disabled = false;
         inputField.focus();
     }
+}
+
+/**
+ * Renders the color-coded technical mode badge & action buttons below Rob's message
+ */
+function renderModeActionCard(targetReplyDiv, isStrict, userQuery) {
+    const actionCard = document.createElement("div");
+    activeActionCard = actionCard;
+    actionCard.className = "mode-action-card";
+
+    const badgeBg = isStrict ? "rgba(255, 69, 58, 0.12)" : "rgba(48, 209, 88, 0.12)";
+    const badgeBorder = isStrict ? "#ff453a" : "#30d158";
+    const badgeText = isStrict ? "🔴 Generated in Strict Knowledge Mode (RAG Grounded)" : "🟢 Generated in Creative / General Conversation Mode";
+
+    actionCard.style.cssText = `
+        background: ${badgeBg};
+        border: 1px solid ${badgeBorder};
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin: 6px 0 12px 0;
+        font-size: 0.85em;
+    `;
+
+    actionCard.innerHTML = `
+        <div style="margin-bottom: 6px; font-weight: bold; color: ${badgeBorder};">
+            ${badgeText}
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                🎨 Redo in Creative Mode
+            </button>
+            <button class="redo-strict-btn" style="background: #2c2c2e; color: #ff6b6b; border: 1px solid #ff453a; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                🔒 Redo in Strict Knowledge Mode
+            </button>
+            <button class="keep-btn" style="background: #0a84ff; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                ✅ Keep Response & Continue
+            </button>
+        </div>
+    `;
+
+    targetReplyDiv.after(actionCard);
+
+    // Event Bindings
+    actionCard.querySelector('.redo-creative-btn').onclick = () => {
+        logTerm("🎨 User selected: Redo in Creative Mode");
+        sendChatMessage('creative', targetReplyDiv, userQuery);
+    };
+
+    actionCard.querySelector('.redo-strict-btn').onclick = () => {
+        logTerm("🔒 User selected: Redo in Strict Knowledge Mode");
+        sendChatMessage('strict', targetReplyDiv, userQuery);
+    };
+
+    actionCard.querySelector('.keep-btn').onclick = () => {
+        logTerm("✅ User confirmed response. Closing action card.");
+        finalizePreviousActionCard();
+    };
 }
 
 export function downloadChatAsTxt() {
