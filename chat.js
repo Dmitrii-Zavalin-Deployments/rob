@@ -259,7 +259,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: hasKnowledgeMatch ? 0.0 : 0.4,
+            temperature: hasKnowledgeMatch ? 0.0 : 0.5, // Updated to 0.5 for creative mode
             max_tokens: 384, // Capped to prevent Windows TDR GPU driver timeout
             stream: true
         });
@@ -297,17 +297,19 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         );
 
         if (isGpuCrash) {
-            logTerm("⚠️ GPU context reset encountered. Displaying browser restart and export instructions.");
+            logTerm("⚠️ GPU context reset encountered. Displaying compact browser restart and export window.");
+            
+            // Compact, elegant, centered crash recovery window matching mode badge style
             replyDiv.innerHTML = `
-                <div style="background: rgba(255, 69, 58, 0.15); border: 1px solid #ff453a; padding: 12px; border-radius: 8px; margin: 8px 0;">
-                    <p style="margin: 0 0 6px 0; color: #ff6b6b; font-weight: bold;">
+                <div style="background: rgba(255, 69, 58, 0.12); border: 1px solid #ff453a; padding: 10px 14px; border-radius: 6px; margin: 6px 0 12px 0; font-size: 0.85em;">
+                    <div style="font-weight: bold; color: #ff6b6b; margin-bottom: 4px;">
                         ⚠️ WebGPU Hardware Limit Reached (Windows GPU Reset)
-                    </p>
-                    <p style="margin: 0 0 10px 0; font-size: 0.9em; color: #ddd;">
-                        Your Windows GPU driver dropped the WebGPU context due to memory constraints. Please <b>download your transcript</b> below, then <b>completely close and restart your browser</b> to clear the hardware queue before launching next session with Rob.
-                    </p>
-                    <div style="display: flex; gap: 8px;">
-                        <button id="recovery-download-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                    </div>
+                    <div style="color: #ddd; margin-bottom: 8px; line-height: 1.4;">
+                        Your GPU driver dropped the WebGPU context due to memory constraints. Please <b>download your transcript</b> below, then <b>completely close and restart your browser</b> to clear the hardware queue before launching your next session with Rob.
+                    </div>
+                    <div style="display: flex; justify-content: center;">
+                        <button id="recovery-download-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #ff453a; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em; display: inline-flex; align-items: center; gap: 4px;">
                             📥 Download Transcript
                         </button>
                     </div>
