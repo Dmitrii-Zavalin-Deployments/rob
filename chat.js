@@ -153,11 +153,11 @@ ${ragReferenceText}`;
             const content = chunk.choices[0]?.delta?.content || "";
             fullText += content;
 
-            // Render Markdown if available, otherwise display plain formatted text
+            // Render Markdown if available, otherwise display plain formatted text with bold prefix
             if (typeof window.marked !== 'undefined' && window.marked.parse) {
                 replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fullText);
             } else {
-                replyDiv.innerText = "Rob: " + fullText;
+                replyDiv.innerHTML = "<b>Rob:</b> " + fullText;
             }
             history.scrollTop = history.scrollHeight;
         }
