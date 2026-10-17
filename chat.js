@@ -82,7 +82,7 @@ export async function sendChatMessage() {
         await bootRobEngine();
         engine = getEngine();
         if (!engine) {
-            history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">Rob Error: WebGPU engine is unavailable.</div>`;
+            history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;"><b>Rob:</b> WebGPU engine is unavailable.</div>`;
             return;
         }
     }
@@ -109,22 +109,27 @@ export async function sendChatMessage() {
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
     const matchedContext = rankAndExtractRelevantSentences(userText);
+    const hasKnowledgeMatch = matchedContext && matchedContext.length > 0;
 
-    let ragReferenceText = matchedContext.length > 0 
-        ? matchedContext 
-        : "No specific sentence matches found in the loaded corpus.";
+    let systemInstruction = "";
 
-    const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
-Be helpful, polite, precise, and conversational.
+    if (hasKnowledgeMatch) {
+        // STRICT KNOWLEDGE MODE (Triggered when matchedContext finds relevant training data)
+        systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
 
-Instructions:
-1. Base your answers strictly and primarily on the provided REFERENCE CONTEXT below.
-2. When asked for code, technical architectures, or script modifications, provide complete, clean, and fully functional code blocks.
-3. DO NOT invent, define, or extrapolate background explanations or technical details for any terms, technologies, or features unless explicitly written in the reference context.
-4. If the reference context does not contain enough information to answer a part of the question, state clearly what is missing rather than guessing.
+STRICT KNOWLEDGE BASE INSTRUCTIONS:
+1. Relevant information was found in the general_training/ corpus for this user query.
+2. You MUST answer STRICTLY AND ONLY using the facts provided in the REFERENCE CONTEXT below.
+3. For any sub-topic, question, or aspect asked by the user that IS NOT explicitly documented in the reference context below (e.g. specific experiments, dates, or additional features), state clearly: "No information regarding [specific topic] is available in the general_training/ corpus."
+4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary projects, cryptocurrencies, or details.
 
---- EXTRACTED RELEVANT INFORMATION ---
-${ragReferenceText}`;
+--- EXTRACTED REFERENCE CONTEXT ---
+${matchedContext}`;
+    } else {
+        // GENERAL CONVERSATION MODE (Triggered for general chit-chat like "Hi Rob!" or "How is it going?")
+        systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
+Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
+    }
 
     // Update System Instruction in active history
     if (chatHistoryMessages.length === 0) {
@@ -136,7 +141,7 @@ ${ragReferenceText}`;
     // Append user message to active context history
     chatHistoryMessages.push({ role: "user", content: userText });
 
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages). Executing WebGPU stream (max_tokens: 512)...`);
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages | Strict Mode: ${hasKnowledgeMatch}). Executing WebGPU stream (max_tokens: 512)...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
@@ -147,7 +152,7 @@ ${ragReferenceText}`;
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: 0.2,
+            temperature: hasKnowledgeMatch ? 0.0 : 0.4, // Temperature 0 for strict factual compliance
             max_tokens: 512,
             stream: true
         });
@@ -157,7 +162,7 @@ ${ragReferenceText}`;
             const content = chunk.choices[0]?.delta?.content || "";
             fullText += content;
 
-            // Render Markdown if available, otherwise display plain formatted text with bold prefix
+            // Render Markdown if available, otherwise display plain text with bold prefix
             if (typeof window.marked !== 'undefined' && window.marked.parse) {
                 replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fullText);
             } else {
@@ -186,7 +191,7 @@ ${ragReferenceText}`;
             replyDiv.innerText = "Rob Error: " + err.message;
         }
     } finally {
-        // Remove the temporary search status element once the response is complete
+        // Remove the temporary search status element once response completes
         if (statusDiv && statusDiv.parentNode) {
             statusDiv.parentNode.removeChild(statusDiv);
         }
