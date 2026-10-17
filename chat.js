@@ -104,16 +104,14 @@ export async function sendChatMessage() {
         ? matchedContext 
         : "No specific sentence matches found in the loaded corpus.";
 
-    const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
-Be helpful, polite, precise, and conversational.
-When asked for code, technical architectures, or script modifications, provide complete, clean, and fully functional code blocks.
+    const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
 
-CRITICAL INSTRUCTION:
-Base your answers strictly and ONLY on the provided reference information below. 
-Do NOT speculate, assume, or fabricate any unmentioned technologies, sub-projects, or details. 
-If the information requested is not present in the reference text, state clearly that it is not documented in the reference sources.
+Instructions:
+1. Answer the user's question using ONLY the facts provided in the REFERENCE CONTEXT below.
+2. Do NOT mention any extra technologies, features, sub-projects, or details not written in the reference context.
+3. If the reference context does not contain enough information to answer a part of the question, explicitly state: "No additional information is available in the reference context."
 
---- EXTRACTED RELEVANT INFORMATION ---
+--- REFERENCE CONTEXT ---
 ${ragReferenceText}`;
 
     // Update System Instruction in active history
