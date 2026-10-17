@@ -246,8 +246,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    // Optimized token ceilings: 128 for Strict Knowledge Mode, 384 for Creative Mode
-    const activeMaxTokens = hasKnowledgeMatch ? 128 : 384;
+    // Optimized token ceilings: 256 for Strict Knowledge Mode, 384 for Creative Mode
+    const activeMaxTokens = hasKnowledgeMatch ? 256 : 384;
     logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (max_tokens: ${activeMaxTokens})...`);
 
     const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
