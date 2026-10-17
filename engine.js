@@ -57,10 +57,10 @@ export async function bootRobEngine() {
         if (navigator.gpu) {
             const adapter = await navigator.gpu.requestAdapter();
             if (adapter && adapter.limits.maxComputeWorkgroupStorageSize < 32768) {
-                throw new Error(`Constrained GPU detected (workgroup storage limit: ${adapter.limits.maxComputeWorkgroupStorageSize} bytes). Desktop WebGPU (32KB+) is required.`);
+                throw new Error(`Unsupported device: Constrained GPU detected (workgroup storage limit: ${adapter.limits.maxComputeWorkgroupStorageSize} bytes). Desktop WebGPU (32KB+) is required.`);
             }
         } else {
-            throw new Error("WebGPU is not supported in this browser environment.");
+            throw new Error("Unsupported device: WebGPU is not supported in this browser environment.");
         }
 
         engine = await webllm.CreateMLCEngine(selectedModel, {
