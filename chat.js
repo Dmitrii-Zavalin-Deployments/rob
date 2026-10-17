@@ -23,7 +23,7 @@ export async function warmupEngineContext(engineInstance) {
     const warmupMessages = [
         { 
             role: "system", 
-            content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Be helpful, polite, precise, and conversational." 
+            content: "You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Your name is Rob. Never claim to be Dmitrii. Be helpful, polite, precise, and conversational." 
         },
         { 
             role: "user", 
@@ -114,8 +114,12 @@ export async function sendChatMessage() {
     let systemInstruction = "";
 
     if (hasKnowledgeMatch) {
+        // Format array elements cleanly with newlines if needed
+        const formattedContext = Array.isArray(matchedContext) ? matchedContext.join("\n") : matchedContext;
+
         // STRICT KNOWLEDGE MODE (Triggered when matchedContext finds relevant training data)
         systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
+Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin or confuse your identity with the user.
 
 STRICT KNOWLEDGE BASE INSTRUCTIONS:
 1. Relevant information was found in the general_training/ corpus for this user query.
@@ -124,10 +128,11 @@ STRICT KNOWLEDGE BASE INSTRUCTIONS:
 4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary projects, cryptocurrencies, or details.
 
 --- EXTRACTED REFERENCE CONTEXT ---
-${matchedContext}`;
+${formattedContext}`;
     } else {
         // GENERAL CONVERSATION MODE (Triggered for general chit-chat like "Hi Rob!" or "How is it going?")
         systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
+Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin.
 Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
     }
 
