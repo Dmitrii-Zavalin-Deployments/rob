@@ -53,12 +53,12 @@ export async function bootRobEngine() {
             throw new Error("Local WebLLM module failed to load from ./vendor/webllm/index.js.");
         }
 
-        // Pre-flight check for desktop-grade WebGPU workgroup storage support with high-performance request
+        // Pre-flight check for desktop-grade WebGPU workgroup storage support
         if (navigator.gpu) {
-            const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+            const adapter = await navigator.gpu.requestAdapter();
             
             if (!adapter) {
-                throw new Error("WebGPU adapter unavailable. The browser tab may have been hibernated or GPU acceleration is disabled. Please refresh the page.");
+                throw new Error("WebGPU adapter unavailable. Please check if hardware acceleration is enabled in your browser.");
             }
 
             if (adapter.limits && adapter.limits.maxComputeWorkgroupStorageSize < 32768) {
