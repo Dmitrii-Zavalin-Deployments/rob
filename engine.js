@@ -19,6 +19,18 @@ const appConfig = {
     ]
 };
 
+// Automatic VRAM release when tab closes or refreshes
+window.addEventListener("beforeunload", () => {
+    if (engine) {
+        try {
+            engine.unload();
+            console.log("[engine.js] WebGPU VRAM context successfully released on tab unload.");
+        } catch (e) {
+            // Unload cleanup attempt during window teardown
+        }
+    }
+});
+
 export async function bootRobEngine() {
     if (isBooting) return;
     isBooting = true;
