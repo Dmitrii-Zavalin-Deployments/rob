@@ -114,10 +114,8 @@ export async function sendChatMessage() {
     let systemInstruction = "";
 
     if (hasKnowledgeMatch) {
-        // Format array elements cleanly with newlines if needed
         const formattedContext = Array.isArray(matchedContext) ? matchedContext.join("\n") : matchedContext;
 
-        // STRICT KNOWLEDGE MODE (Triggered when matchedContext finds relevant training data)
         systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin.
 Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin or confuse your identity with the user.
 
@@ -130,7 +128,6 @@ STRICT KNOWLEDGE BASE INSTRUCTIONS:
 --- EXTRACTED REFERENCE CONTEXT ---
 ${formattedContext}`;
     } else {
-        // GENERAL CONVERSATION MODE (Triggered for general chit-chat like "Hi Rob!" or "How is it going?")
         systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
 Your name is Rob. You are an AI assistant. Never claim to be Dmitrii Zavalin.
 Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
@@ -146,7 +143,15 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
     // Append user message to active context history
     chatHistoryMessages.push({ role: "user", content: userText });
 
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages | Strict Mode: ${hasKnowledgeMatch}). Executing WebGPU stream (max_tokens: 512)...`);
+    // Enforce history window cap to prevent VRAM exhaustion on laptops (System prompt + last 8 turns)
+    if (chatHistoryMessages.length > 9) {
+        chatHistoryMessages = [
+            chatHistoryMessages[0],
+            ...chatHistoryMessages.slice(-8)
+        ];
+    }
+
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages | Strict Mode: ${hasKnowledgeMatch}). Executing WebGPU stream (max_tokens: 384)...`);
 
     const replyDiv = document.createElement("div");
     replyDiv.className = "chat-msg chat-rob";
@@ -157,8 +162,8 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: hasKnowledgeMatch ? 0.0 : 0.4, // Temperature 0 for strict factual compliance
-            max_tokens: 512,
+            temperature: hasKnowledgeMatch ? 0.0 : 0.4,
+            max_tokens: 384, // Optimized for laptop hardware stability
             stream: true
         });
 
@@ -167,7 +172,6 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
             const content = chunk.choices[0]?.delta?.content || "";
             fullText += content;
 
-            // Render Markdown if available, otherwise display plain text with bold prefix
             if (typeof window.marked !== 'undefined' && window.marked.parse) {
                 replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fullText);
             } else {
@@ -183,20 +187,50 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
-        // Auto-recovery handler for disposed session context or buffer faults
-        if (err.message && err.message.includes("disposed")) {
-            logTerm(`⚠️ Disposed WebGPU session detected. Resetting history and re-booting engine session...`);
-            replyDiv.innerText = "Rob: WebGPU session expired. Re-initializing engine context...";
-            chatHistoryMessages = []; // Clear broken context window
-            await bootRobEngine();
-        } else if (err.message && (err.message.includes("Invalid buffer") || err.message.includes("Buffer unmapped"))) {
-            logTerm(`⚠️ WebGPU buffer corruption detected. Suggesting cache wipe...`);
-            replyDiv.innerText = "Rob Error: WebGPU buffer corrupted. Please click '🧹 Clear Application Cache & Restart Rob AI' to clear old cache files and reboot.";
+        const isGpuCrash = err.message && (
+            err.message.includes("DXGI_ERROR_DEVICE_REMOVED") ||
+            err.message.includes("disposed") ||
+            err.message.includes("device lost") ||
+            err.message.includes("Invalid buffer") ||
+            err.message.includes("Buffer unmapped")
+        );
+
+        if (isGpuCrash) {
+            logTerm("⚠️ GPU context limit reached. Prompting user to save transcript and restart.");
+            replyDiv.innerHTML = `
+                <div style="background: rgba(255, 69, 58, 0.15); border: 1px solid #ff453a; padding: 12px; border-radius: 8px; margin: 8px 0;">
+                    <p style="margin: 0 0 6px 0; color: #ff6b6b; font-weight: bold;">
+                        ⚠️ WebGPU VRAM Limit Reached (Driver Reset)
+                    </p>
+                    <p style="margin: 0 0 10px 0; font-size: 0.9em; color: #ddd;">
+                        Your GPU driver reset the WebGPU session due to memory constraints. Please download your chat transcript below before starting a fresh session.
+                    </p>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="recovery-download-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                            📥 Download Transcript
+                        </button>
+                        <button id="recovery-restart-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                            🔄 Start Fresh Session
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Attach event listeners safely
+            setTimeout(() => {
+                const dlBtn = document.getElementById("recovery-download-btn");
+                const rtBtn = document.getElementById("recovery-restart-btn");
+                if (dlBtn) dlBtn.onclick = downloadChatAsTxt;
+                if (rtBtn) rtBtn.onclick = async () => {
+                    chatHistoryMessages = [];
+                    await bootRobEngine();
+                };
+            }, 100);
+
         } else {
             replyDiv.innerText = "Rob Error: " + err.message;
         }
     } finally {
-        // Remove the temporary search status element once response completes
         if (statusDiv && statusDiv.parentNode) {
             statusDiv.parentNode.removeChild(statusDiv);
         }
