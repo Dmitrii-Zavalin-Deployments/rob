@@ -56,7 +56,7 @@ export async function bootRobEngine() {
 
     logTerm(`⚡ Initializing local WebGPU engine for model: ${selectedModel}`);
     if (history) {
-        history.innerHTML = `<div class="chat-msg chat-rob">Rob: Initializing local WebGPU engine... Please wait.</div>`;
+        history.innerHTML = `<div class="chat-msg chat-rob"><b>Rob:</b> Initializing local WebGPU engine... Please wait.</div>`;
         history.scrollTop = history.scrollHeight;
     }
 
@@ -92,7 +92,7 @@ export async function bootRobEngine() {
         await warmupEngineContext(engine);
 
         if (history) {
-            history.innerHTML = `<div class="chat-msg chat-rob">Rob: Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
+            history.innerHTML = `<div class="chat-msg chat-rob"><b>Rob:</b> Hello! Autonomous local intelligence & client-side knowledge base are ready. How can I assist you today?</div>`;
             history.scrollTop = history.scrollHeight;
         }
 
@@ -112,7 +112,7 @@ export async function bootRobEngine() {
     } catch (err) {
         logTerm(`🔴 CRITICAL WebGPU Error: ${err.message}`);
         if (history) {
-            history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;">🔴 WebGPU Error: ${err.message}.</div>`;
+            history.innerHTML += `<div class="chat-msg chat-rob" style="color: #a61c1c;"><b>Rob:</b> WebGPU Error: ${err.message}.</div>`;
             history.scrollTop = history.scrollHeight;
         }
         if (statusBadge) {
