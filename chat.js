@@ -246,7 +246,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (max_tokens: 384)...`);
+    const activeMaxTokens = hasKnowledgeMatch ? 256 : 512;
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (max_tokens: ${activeMaxTokens})...`);
 
     const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
     if (!isRedo) {
@@ -259,8 +260,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: hasKnowledgeMatch ? 0.0 : 0.5, // Updated to 0.5 for creative mode
-            max_tokens: hasKnowledgeMatch ? 256 : 512, // Scaled for larger RAG docs, expansive for creative
+            temperature: hasKnowledgeMatch ? 0.0 : 0.5,
+            max_tokens: activeMaxTokens,
             stream: true
         });
 
@@ -299,17 +300,22 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         if (isGpuCrash) {
             logTerm("⚠️ GPU context reset encountered. Displaying compact browser restart and export window.");
             
-            // Compact, elegant, centered crash recovery window matching mode badge style
+            // Neutralize container constraints so the crash window renders as a compact, centered card
+            replyDiv.style.background = "transparent";
+            replyDiv.style.border = "none";
+            replyDiv.style.padding = "0";
+            replyDiv.style.margin = "8px 0";
+
             replyDiv.innerHTML = `
-                <div style="background: rgba(255, 69, 58, 0.12); border: 1px solid #ff453a; padding: 10px 14px; border-radius: 6px; margin: 6px 0 12px 0; font-size: 0.85em;">
+                <div style="background: rgba(255, 69, 58, 0.12); border: 1px solid #ff453a; padding: 10px 14px; border-radius: 6px; font-size: 0.85em; text-align: center; max-width: 100%; box-sizing: border-box;">
                     <div style="font-weight: bold; color: #ff6b6b; margin-bottom: 4px;">
                         ⚠️ WebGPU Hardware Limit Reached (Windows GPU Reset)
                     </div>
                     <div style="color: #ddd; margin-bottom: 8px; line-height: 1.4;">
                         Your GPU driver dropped the WebGPU context due to memory constraints. Please <b>download your transcript</b> below, then <b>completely close and restart your browser</b> to clear the hardware queue before launching your next session with Rob.
                     </div>
-                    <div style="display: flex; justify-content: center;">
-                        <button id="recovery-download-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #ff453a; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em; display: inline-flex; align-items: center; gap: 4px;">
+                    <div style="display: flex; justify-content: center; align-items: center;">
+                        <button id="recovery-download-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #ff453a; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em; display: inline-flex; align-items: center; gap: 6px;">
                             📥 Download Transcript
                         </button>
                     </div>
