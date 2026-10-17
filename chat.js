@@ -104,15 +104,15 @@ export async function sendChatMessage() {
         ? matchedContext 
         : "No specific sentence matches found in the loaded corpus.";
 
-    const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Be helpful, polite, precise, and conversational.
+    const systemInstruction = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. 
+Be helpful, polite, precise, and conversational.
 
 Instructions:
-1. Answer the user's question using ONLY the facts provided in the REFERENCE CONTEXT below.
-2. Do NOT mention any extra technologies, features, sub-projects, or details not written in the reference context.
-3. If the reference context does not contain enough information to answer a part of the question, explicitly state: "No additional information is available in the reference context."
-4. When asked for code, technical architectures, or script modifications, provide complete, clean, and fully functional code blocks.
+1. Base your answers strictly and primarily on the provided REFERENCE CONTEXT below.
+2. When asked for code, technical architectures, or script modifications, provide complete, clean, and fully functional code blocks.
+3. If the reference context does not contain enough information to answer a part of the question, state clearly what is missing rather than inventing unmentioned specifications.
 
---- REFERENCE CONTEXT ---
+--- EXTRACTED RELEVANT INFORMATION ---
 ${ragReferenceText}`;
 
     // Update System Instruction in active history
@@ -136,7 +136,7 @@ ${ragReferenceText}`;
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: 0.1,
+            temperature: 0.2,
             max_tokens: 512,
             stream: true
         });
