@@ -64,6 +64,6 @@ rob/
 
 ## 📜 License
 
-This project is open-source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](https://github.com/Dmitrii-Zavalin-Deployments/rob?tab=AGPL-3.0-1-ov-file) file for full details.
+This project is open-source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](https://github.com/Dmitrii-Zavalin-Deployments/rob/blob/main/LICENSE) file for full details.
 
 
