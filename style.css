@@ -251,6 +251,7 @@ textarea#chat-input:disabled {
     height: 400px;
     max-height: 400px;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px;
     display: flex; 
     flex-direction: column; 
@@ -273,17 +274,19 @@ textarea#chat-input:disabled {
 .chat-msg { 
     padding: 10px 14px; 
     border-radius: 8px; 
-    max-width: 85%; 
-    word-wrap: break-word; 
+    max-width: 100%; 
+    box-sizing: border-box;
     font-size: 14px; 
     line-height: 1.5;
-    white-space: pre-wrap; 
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .chat-user { 
     background: var(--primary-blue); 
     color: #ffffff; 
     align-self: flex-end; 
+    max-width: 85%;
     border-bottom-right-radius: 2px;
 }
 
@@ -294,4 +297,34 @@ textarea#chat-input:disabled {
     color: var(--text-main); 
     border-bottom-left-radius: 2px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    width: 100%;
+}
+
+/* Code Blocks & Formatting inside Rob's replies */
+.chat-msg pre {
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    max-width: 100%;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 13px;
+    margin: 8px 0;
+    border: 1px solid #30363d;
+}
+
+.chat-msg pre code {
+    background: transparent;
+    padding: 0;
+    border: none;
+    white-space: pre;
+}
+
+.chat-msg code {
+    background: rgba(175, 184, 193, 0.2);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 85%;
 }
