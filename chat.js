@@ -96,11 +96,15 @@ export async function sendChatMessage() {
     inputField.value = '';
     history.scrollTop = history.scrollHeight;
 
-    // Display system search status in chat window & log to terminal
+    // Display temporary system search status in chat window & log to terminal
     const searchStatusText = "Looking for the answer in the text files from general_training/ (see 📡 System Terminal for details)";
     logTerm(`📡 ${searchStatusText}`);
     
-    history.innerHTML += `<div class="chat-msg chat-system" style="color: #7f8c8d; font-style: italic; margin: 4px 0;">📡 ${searchStatusText}</div>`;
+    const statusDiv = document.createElement("div");
+    statusDiv.className = "chat-msg chat-system";
+    statusDiv.style.cssText = "color: #7f8c8d; font-style: italic; margin: 4px 0;";
+    statusDiv.innerHTML = `📡 ${searchStatusText}`;
+    history.appendChild(statusDiv);
     history.scrollTop = history.scrollHeight;
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
@@ -182,6 +186,11 @@ ${ragReferenceText}`;
             replyDiv.innerText = "Rob Error: " + err.message;
         }
     } finally {
+        // Remove the temporary search status element once the response is complete
+        if (statusDiv && statusDiv.parentNode) {
+            statusDiv.parentNode.removeChild(statusDiv);
+        }
+
         isGenerating = false;
         inputField.disabled = false;
         sendBtn.disabled = false;
