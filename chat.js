@@ -259,35 +259,27 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
         );
 
         if (isGpuCrash) {
-            logTerm("⚠️ GPU context reset encountered. Displaying manual export and recovery controls.");
+            logTerm("⚠️ GPU context reset encountered. Displaying browser restart and export instructions.");
             replyDiv.innerHTML = `
                 <div style="background: rgba(255, 69, 58, 0.15); border: 1px solid #ff453a; padding: 12px; border-radius: 8px; margin: 8px 0;">
                     <p style="margin: 0 0 6px 0; color: #ff6b6b; font-weight: bold;">
-                        ⚠️ WebGPU VRAM Limit Reached (Driver Reset)
+                        ⚠️ WebGPU Hardware Limit Reached (Windows GPU Reset)
                     </p>
                     <p style="margin: 0 0 10px 0; font-size: 0.9em; color: #ddd;">
-                        Your GPU driver reset the WebGPU session due to memory constraints. Please download your chat transcript below before starting a fresh session.
+                        Your Windows GPU driver dropped the WebGPU context due to memory constraints. Please <b>download your transcript</b> below, then <b>completely close and restart your browser</b> to clear the hardware queue before launching Rob again.
                     </p>
                     <div style="display: flex; gap: 8px;">
                         <button id="recovery-download-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
                             📥 Download Transcript
                         </button>
-                        <button id="recovery-restart-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                            🔄 Start Fresh Session
-                        </button>
                     </div>
                 </div>
             `;
 
-            // Attach event listeners safely
+            // Attach event listener safely for the download button
             setTimeout(() => {
                 const dlBtn = document.getElementById("recovery-download-btn");
-                const rtBtn = document.getElementById("recovery-restart-btn");
                 if (dlBtn) dlBtn.onclick = downloadChatAsTxt;
-                if (rtBtn) rtBtn.onclick = async () => {
-                    chatHistoryMessages = [];
-                    await bootRobEngine();
-                };
             }, 100);
 
         } else {
