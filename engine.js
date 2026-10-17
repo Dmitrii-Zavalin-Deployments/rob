@@ -19,18 +19,6 @@ const appConfig = {
     ]
 };
 
-// Automatic VRAM release when tab closes or refreshes
-window.addEventListener("beforeunload", () => {
-    if (engine) {
-        try {
-            engine.unload();
-            console.log("[engine.js] WebGPU VRAM context successfully released on tab unload.");
-        } catch (e) {
-            // Unload cleanup attempt during window teardown
-        }
-    }
-});
-
 export async function bootRobEngine() {
     if (isBooting) return;
     isBooting = true;
@@ -65,10 +53,15 @@ export async function bootRobEngine() {
             throw new Error("Local WebLLM module failed to load from ./vendor/webllm/index.js.");
         }
 
-        // Pre-flight check for desktop-grade WebGPU workgroup storage support
+        // Pre-flight check for desktop-grade WebGPU workgroup storage support with high-performance request
         if (navigator.gpu) {
-            const adapter = await navigator.gpu.requestAdapter();
-            if (adapter && adapter.limits.maxComputeWorkgroupStorageSize < 32768) {
+            const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+            
+            if (!adapter) {
+                throw new Error("WebGPU adapter unavailable. The browser tab may have been hibernated or GPU acceleration is disabled. Please refresh the page.");
+            }
+
+            if (adapter.limits && adapter.limits.maxComputeWorkgroupStorageSize < 32768) {
                 throw new Error(`Unsupported device: Constrained GPU detected (workgroup storage limit: ${adapter.limits.maxComputeWorkgroupStorageSize} bytes). Recommended device to run: desktop computer or laptop with Microsoft Windows (Desktop WebGPU 32KB+ required).`);
             }
         } else {
