@@ -1,6 +1,6 @@
 import { logTerm } from './logger.js';
 import { getEngine, bootRobEngine } from './engine.js';
-import { rankAndExtractRelevantSentences } from './rag.js';
+import { rankAndExtractRelevantSentences, setMatchThreshold } from './rag.js';
 
 console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKeydown, downloadChatAsTxt, warmupEngineContext");
 
@@ -8,6 +8,60 @@ console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKey
 let chatHistoryMessages = [];
 let isGenerating = false;
 let activeActionCard = null; // Tracks current mode action card in UI
+
+/**
+ * Initializes UI Slider Controls and Reset button listeners.
+ * Ensures the value labels update live and reset behavior functions properly.
+ */
+function initEngineTuners() {
+    const sliderTemp = document.getElementById("slider-temp");
+    const valTemp = document.getElementById("val-temp");
+    const sliderTokens = document.getElementById("slider-tokens");
+    const valTokens = document.getElementById("val-tokens");
+    const sliderMatch = document.getElementById("slider-match");
+    const valMatch = document.getElementById("val-match");
+    const resetBtn = document.getElementById("reset-defaults-btn");
+
+    if (sliderTemp && valTemp) {
+        sliderTemp.oninput = (e) => { valTemp.innerText = e.target.value; };
+    }
+    if (sliderTokens && valTokens) {
+        sliderTokens.oninput = (e) => { valTokens.innerText = e.target.value; };
+    }
+    if (sliderMatch && valMatch) {
+        sliderMatch.oninput = (e) => { 
+            valMatch.innerText = e.target.value; 
+            setMatchThreshold(parseFloat(e.target.value) / 100.0);
+        };
+    }
+
+    if (resetBtn) {
+        resetBtn.onclick = () => {
+            if (sliderTemp && valTemp) {
+                sliderTemp.value = "0.5";
+                valTemp.innerText = "0.5";
+            }
+            if (sliderTokens && valTokens) {
+                sliderTokens.value = "320";
+                valTokens.innerText = "320";
+            }
+            if (sliderMatch && valMatch) {
+                sliderMatch.value = "20";
+                valMatch.innerText = "20";
+                setMatchThreshold(0.20);
+            }
+
+            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.5, Tokens: 320, Match: 20%).");
+        };
+    }
+}
+
+// Execute initialization safely regardless of module loading state
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initEngineTuners);
+} else {
+    initEngineTuners();
+}
 
 /**
  * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
@@ -216,7 +270,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    // Run Sentence-by-Sentence Combinatorics RAG Extraction (returns raw array now)
+    // Run Sentence-by-Sentence Combinatorics RAG Extraction
     const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
     let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
@@ -246,9 +300,16 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    // Optimized token ceilings: 256 for Strict Knowledge Mode, 384 for Creative Mode
-    const activeMaxTokens = hasKnowledgeMatch ? 256 : 384;
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (max_tokens: ${activeMaxTokens})...`);
+    // Read live values from Control Panel sliders
+    const sliderTemp = document.getElementById("slider-temp");
+    const sliderTokens = document.getElementById("slider-tokens");
+    const userTempSetting = sliderTemp ? parseFloat(sliderTemp.value) : 0.5;
+    const userMaxTokensSetting = sliderTokens ? parseInt(sliderTokens.value, 10) : 320;
+
+    const activeTemperature = hasKnowledgeMatch ? 0.0 : userTempSetting;
+    const activeMaxTokens = userMaxTokensSetting;
+
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (temp: ${activeTemperature}, max_tokens: ${activeMaxTokens})...`);
 
     const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
     if (!isRedo) {
@@ -261,7 +322,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: hasKnowledgeMatch ? 0.0 : 0.5,
+            temperature: activeTemperature,
             max_tokens: activeMaxTokens,
             stream: true
         });
@@ -334,8 +395,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                     pivotWindow.remove();
                     replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus. I will respond in <b>${totalSentences}</b> sequential messages below to ensure zero data loss:`;
                     
-                    let accumulatedDumpText = `[General Training Corpus Dump: ${totalSentences} sentences]`;
-
                     for (let i = 0; i < totalSentences; i++) {
                         const sentence = matchedSentences[i];
                         logTerm(`🔄 [Chunk Loop] Processing sentence ${i + 1} of ${totalSentences} (Length: ${sentence.length} chars)...`);
@@ -375,7 +434,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                                 history.scrollTop = history.scrollHeight;
                             }
 
-                            accumulatedDumpText += `\n[Match ${i + 1}]: ${chunkText}`;
                             logTerm(`✅ [Chunk Loop] Successfully streamed sentence ${i + 1}/${totalSentences} (${chunkText.length} chars).`);
 
                         } catch (chunkErr) {
@@ -384,12 +442,12 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                         }
                     }
 
-                    // If sequential dumping, remove previous user turn from memory array
+                    // Scrub the oversized user query from history array to keep memory clean
                     if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'user') {
                         chatHistoryMessages.pop();
                     }
 
-                    logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections.`);
+                    logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections (History left clean).`);
                 };
 
                 // Helper to switch to Creative mode instead

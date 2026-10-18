@@ -42,7 +42,7 @@
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: Knowledge Base & Terminal Monitor -->
+            <!-- RIGHT COLUMN: Knowledge Base, Tuners & Terminal Monitor -->
             <div class="right-column">
                 <!-- Knowledge Base Panel -->
                 <div class="card">
@@ -52,6 +52,47 @@
                     </div>
                     <div style="margin-top: 14px;">
                         <button class="btn btn-danger" style="width: 100%;" onclick="wipeWebGPUCache()">🧹 Clear Application Cache & Restart Rob AI</button>
+                    </div>
+                </div>
+
+                <!-- Engine Tuners Control Panel -->
+                <div class="card" id="tuners-card">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h2 style="margin: 0;">🎛️ Engine Tuners</h2>
+                        <button id="reset-defaults-btn" class="btn btn-secondary" style="font-size: 0.75em; padding: 3px 8px;">Reset Defaults</button>
+                    </div>
+
+                    <!-- Tuner 1: Creativity Temperature -->
+                    <div class="tuner-group">
+                        <div class="tuner-label-row">
+                            <span>🎨 Creativity Temperature: <strong id="val-temp">0.5</strong></span>
+                        </div>
+                        <input type="range" id="slider-temp" min="0.0" max="1.5" step="0.05" value="0.5" class="tuner-slider">
+                        <div class="tuner-desc">
+                            Controls randomness in Creative mode (Strict RAG mode remains locked at 0.0). Higher = more imaginative (up to 1.5).
+                        </div>
+                    </div>
+
+                    <!-- Tuner 2: Max Response Tokens -->
+                    <div class="tuner-group">
+                        <div class="tuner-label-row">
+                            <span>📏 Max Response Tokens: <strong id="val-tokens">320</strong></span>
+                        </div>
+                        <input type="range" id="slider-tokens" min="32" max="1024" step="32" value="320" class="tuner-slider">
+                        <div class="tuner-desc">
+                            Limits the maximum length of Rob's generated responses (32 = ultra-concise; 1024 = deep long-form output).
+                        </div>
+                    </div>
+
+                    <!-- Tuner 3: RAG Match Threshold -->
+                    <div class="tuner-group" style="margin-bottom: 0;">
+                        <div class="tuner-label-row">
+                            <span>🎯 RAG Match Threshold: <strong id="val-match">20</strong>%</span>
+                        </div>
+                        <input type="range" id="slider-match" min="0" max="100" step="5" value="20" class="tuner-slider">
+                        <div class="tuner-desc">
+                            Minimum keyword overlap required to match corpus sentences (0% = match everything; 100% = exact 100% keyword match).
+                        </div>
                     </div>
                 </div>
 
