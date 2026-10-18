@@ -216,9 +216,9 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    // Run Sentence-by-Sentence Combinatorics RAG Extraction
+    // Run Sentence-by-Sentence Combinatorics RAG Extraction (returns raw array now)
     const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
-    let hasKnowledgeMatch = matchedContext && (Array.isArray(matchedContext) ? matchedContext.length > 0 : String(matchedContext).trim().length > 0);
+    let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
     // Apply manual mode override if user clicked a Redo button
     if (forceMode === 'creative') {
@@ -302,18 +302,12 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         if (isTokenOverflow) {
             logTerm("⚠️ RAG payload exceeded 2048 token limit. Initiating 1-Sentence = 1-Chunk Sequential Streaming Loop...");
 
-            // Robustly parse matched sentences whether matchedContext is an Array or a newline-separated String
-            let matchedSentences = [];
-            if (Array.isArray(matchedContext)) {
-                matchedSentences = matchedContext;
-            } else if (typeof matchedContext === 'string') {
-                matchedSentences = matchedContext.split('\n').filter(s => s.trim().length > 0);
-            }
-
+            // matchedContext is now natively an array from rag.js
+            const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
             const totalSentences = matchedSentences.length;
 
             if (totalSentences > 0) {
-                logTerm(`📦 Corpus matches successfully parsed into ${totalSentences} individual sentence chunks for sequential breakdown.`);
+                logTerm(`📦 Corpus matches successfully received as an array of ${totalSentences} individual sentence chunks for sequential breakdown.`);
 
                 // Step 1: Announce in the first message bubble how many sequential responses will follow
                 replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus. I will respond in <b>${totalSentences}</b> sequential messages below to ensure zero data loss:`;
@@ -371,7 +365,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                 logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections.`);
 
             } else {
-                logTerm(`⚠️ Token overflow caught, but no matched sentences could be parsed from matchedContext.`);
+                logTerm(`⚠️ Token overflow caught, but matchedSentences array is empty.`);
                 replyDiv.innerText = "Rob Error: Prompt tokens exceed context window size limit. Please try a narrower, more specific question!";
             }
 
