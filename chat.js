@@ -384,8 +384,11 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                         }
                     }
 
-                    // Push a single consolidated summary into history so the next turn doesn't repeat 182 times
-                    chatHistoryMessages.push({ role: "assistant", content: accumulatedDumpText });
+                    // If sequential dumping, remove previous user turn from memory array
+                    if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'user') {
+                        chatHistoryMessages.pop();
+                    }
+
                     logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections.`);
                 };
 
