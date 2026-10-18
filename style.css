@@ -274,9 +274,8 @@ textarea#chat-input:disabled {
 #chat-history { 
     background: #fafbfc; 
     color: var(--text-main); 
-    flex: 1;
-    height: 400px;
-    max-height: 400px;
+    flex: 1; /* Dynamically fills available vertical space in the left card */
+    min-height: 450px; /* Ensures a comfortable baseline height */
     overflow-y: auto;
     overflow-x: hidden;
     padding: 16px;

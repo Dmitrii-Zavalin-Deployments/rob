@@ -246,9 +246,16 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    // Optimized token ceilings: 256 for Strict Knowledge Mode, 384 for Creative Mode
-    const activeMaxTokens = hasKnowledgeMatch ? 256 : 384;
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (max_tokens: ${activeMaxTokens})...`);
+    // Read live values from Control Panel sliders
+    const sliderTemp = document.getElementById("slider-temp");
+    const sliderTokens = document.getElementById("slider-tokens");
+    const userTempSetting = sliderTemp ? parseFloat(sliderTemp.value) : 0.5;
+    const userMaxTokensSetting = sliderTokens ? parseInt(sliderTokens.value, 10) : 320;
+
+    const activeTemperature = hasKnowledgeMatch ? 0.0 : userTempSetting;
+    const activeMaxTokens = userMaxTokensSetting;
+
+    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (temp: ${activeTemperature}, max_tokens: ${activeMaxTokens})...`);
 
     const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
     if (!isRedo) {
@@ -261,7 +268,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: hasKnowledgeMatch ? 0.0 : 0.5,
+            temperature: activeTemperature,
             max_tokens: activeMaxTokens,
             stream: true
         });
@@ -334,8 +341,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                     pivotWindow.remove();
                     replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus. I will respond in <b>${totalSentences}</b> sequential messages below to ensure zero data loss:`;
                     
-                    let accumulatedDumpText = `[General Training Corpus Dump: ${totalSentences} sentences]`;
-
                     for (let i = 0; i < totalSentences; i++) {
                         const sentence = matchedSentences[i];
                         logTerm(`🔄 [Chunk Loop] Processing sentence ${i + 1} of ${totalSentences} (Length: ${sentence.length} chars)...`);
@@ -375,7 +380,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                                 history.scrollTop = history.scrollHeight;
                             }
 
-                            accumulatedDumpText += `\n[Match ${i + 1}]: ${chunkText}`;
                             logTerm(`✅ [Chunk Loop] Successfully streamed sentence ${i + 1}/${totalSentences} (${chunkText.length} chars).`);
 
                         } catch (chunkErr) {
@@ -384,12 +388,12 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                         }
                     }
 
-                    // If sequential dumping, remove previous user turn from memory array
+                    // Scrub the oversized user query from history array to keep memory clean
                     if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'user') {
                         chatHistoryMessages.pop();
                     }
 
-                    logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections.`);
+                    logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections (History left clean).`);
                 };
 
                 // Helper to switch to Creative mode instead

@@ -1,8 +1,18 @@
 import { logTerm, getBasePath } from './logger.js';
 
-console.log("[Module Loaded] rag.js | Functions: loadGeneralTrainingCorpus, getCorpus, rankAndExtractRelevantSentences");
+console.log("[Module Loaded] rag.js | Functions: loadGeneralTrainingCorpus, getCorpus, rankAndExtractRelevantSentences, setMatchThreshold, getMatchThreshold");
 
 let generalKnowledgeCorpus = [];
+let currentMatchThreshold = 0.20; // Default 20%
+
+export function setMatchThreshold(thresholdVal) {
+    currentMatchThreshold = thresholdVal;
+    logTerm(`🎛️ [rag.js -> setMatchThreshold] RAG match threshold updated to ${Math.round(thresholdVal * 100)}%.`);
+}
+
+export function getMatchThreshold() {
+    return currentMatchThreshold;
+}
 
 export async function loadGeneralTrainingCorpus() {
     const badge = document.getElementById('rag-status');
@@ -67,7 +77,7 @@ export function rankAndExtractRelevantSentences(userQuery) {
         return [];
     }
 
-    logTerm("📡 [rag.js -> RAG Combinatorics] Starting sentence-by-sentence matrix scan...");
+    logTerm(`📡 [rag.js -> RAG Combinatorics] Starting sentence matrix scan (Threshold: ${Math.round(currentMatchThreshold * 100)}%)...`);
 
     const querySentences = splitIntoSentences(userQuery);
     logTerm(`🔍 Query decomposed into ${querySentences.length} sentence(s).`);
@@ -89,7 +99,7 @@ export function rankAndExtractRelevantSentences(userQuery) {
 
                 const score = calculateOverlapScore(qTokens, dTokens);
 
-                if (score > 0.20) { // Relevance threshold
+                if (score > currentMatchThreshold) { // Dynamic threshold from control panel
                     logTerm(`🎯 MATCH FOUND [Score: ${Math.round(score * 100)}%] | Query S#${qIdx + 1} ↔ Doc S#${dIdx + 1}: "${dSent.trim()}"`);
                     matchedSentences.add(dSent.trim());
                 }
