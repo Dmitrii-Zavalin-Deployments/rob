@@ -303,7 +303,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             logTerm("⚠️ RAG payload exceeded 2048 token limit. Gracefully falling back to creative mode execution...");
             
             // Extract token count from error message if possible, or fallback to standard reported numbers
-            let tokenCount = "6050";
+            let tokenCount = "2050";
             const tokenMatch = err.message.match(/number of prompt tokens:\s*(\d+)/i);
             if (tokenMatch && tokenMatch[1]) {
                 tokenCount = tokenMatch[1];
@@ -338,7 +338,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                 }
 
                 // Append the precise token limitation notice to Rob's string before finalizing
-                const corpusNotice = `\n\n*(Note: I have detailed information on this topic in my \`general_training/\` materials, but it is **${tokenCount} tokens**, while Rob's bandwidth limit is **2048 tokens**. Please make your question more detailed or specific to target specific sections from the \`general_training/\` materials!)*`;
+                const corpusNotice = `\n\n*(Note: I have detailed information on this topic in my \`general_training/\` materials, but it is **${tokenCount} tokens**, while the model's bandwidth limit is **2048 tokens**. Please make your question more detailed or specific to target specific sections from the \`general_training/\` materials!)*`;
                 
                 fallbackText += corpusNotice;
 
