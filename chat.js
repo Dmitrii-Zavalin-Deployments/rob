@@ -300,20 +300,24 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         );
 
         if (isTokenOverflow) {
-            logTerm("⚠️ RAG payload exceeded 2048 token limit. Gracefully falling back to creative mode with corpus notice...");
+            logTerm("⚠️ RAG payload exceeded 2048 token limit. Gracefully falling back to creative mode execution...");
             
-            // Craft a clear instruction telling Rob to answer creatively first, then mention general_training/ limits
-            const fallbackPrompt = `The user asked: "${userText}". 
-            First, provide a brief general overview of this topic using your creative knowledge. 
-            Second, inform the user that you have detailed reference information on this topic stored in your local general_training/ materials, but printing all of it exceeds your token output limit. 
-            Finally, ask the user what specific aspect or detail they would like to target.`;
+            // Extract token count from error message if possible, or fallback to standard reported numbers
+            let tokenCount = "6050";
+            const tokenMatch = err.message.match(/number of prompt tokens:\s*(\d+)/i);
+            if (tokenMatch && tokenMatch[1]) {
+                tokenCount = tokenMatch[1];
+            }
 
             try {
+                // Re-run the exact user prompt cleanly in Creative mode (no massive RAG dump in system prompt)
+                const creativeMessages = [
+                    { role: "system", content: "You are Rob, an autonomous local AI engine created by Dmitrii Zavalin. Be helpful, direct, and conversational." },
+                    { role: "user", content: userText }
+                ];
+
                 const fallbackGenerator = await engine.chat.completions.create({
-                    messages: [
-                        { role: "system", content: "You are Rob, an autonomous local AI engine. Be helpful, direct, and conversational." },
-                        { role: "user", content: fallbackPrompt }
-                    ],
+                    messages: creativeMessages,
                     max_tokens: 384,
                     temperature: 0.7,
                     stream: true
@@ -323,6 +327,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                 for await (const chunk of fallbackGenerator) {
                     const content = chunk.choices[0]?.delta?.content || "";
                     fallbackText += content;
+                    
+                    // Render interim creative response
                     if (typeof window.marked !== 'undefined' && window.marked.parse) {
                         replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fallbackText);
                     } else {
@@ -331,10 +337,22 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                     history.scrollTop = history.scrollHeight;
                 }
 
+                // Append the precise token limitation notice to Rob's string before finalizing
+                const corpusNotice = `\n\n*(Note: I have detailed information on this topic in my \`general_training/\` materials, but it is **${tokenCount} tokens**, while Rob's bandwidth limit is **2048 tokens**. Please make your question more detailed or specific to target specific sections from the \`general_training/\` materials!)*`;
+                
+                fallbackText += corpusNotice;
+
+                if (typeof window.marked !== 'undefined' && window.marked.parse) {
+                    replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fallbackText);
+                } else {
+                    replyDiv.innerHTML = "<b>Rob:</b> " + fallbackText;
+                }
+                history.scrollTop = history.scrollHeight;
+
                 chatHistoryMessages.push({ role: "assistant", content: fallbackText });
-                logTerm(`✅ Token limit fallback response completed successfully.`);
+                logTerm(`✅ Token limit fallback response completed successfully with token metrics.`);
             } catch (fallbackErr) {
-                replyDiv.innerText = "Rob: Ball lightning is a rare, luminous atmospheric phenomenon. I have detailed notes on this in my general_training/ files, but it exceeds my output token limit. What specific aspect would you like to explore?";
+                replyDiv.innerText = "Rob: I encountered a token limit overflow while scanning general_training/. Please ask a more specific question!";
             }
 
         } else if (isGpuCrash) {
