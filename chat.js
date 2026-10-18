@@ -384,6 +384,11 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                         }
                     }
 
+                    // If sequential dumping, remove previous user turn from memory array
+                    if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'user') {
+                        chatHistoryMessages.pop();
+                    }
+
                     logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections.`);
                 };
 
