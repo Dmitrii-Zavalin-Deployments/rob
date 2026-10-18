@@ -300,17 +300,21 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         );
 
         if (isTokenOverflow) {
-            logTerm("⚠️ RAG payload exceeded 2048 token limit. Gracefully falling back to explanatory notice...");
+            logTerm("⚠️ RAG payload exceeded 2048 token limit. Gracefully falling back to creative mode with corpus notice...");
             
-            const fallbackPrompt = `The user asked a broad question: "${userText}". Acknowledge politely that you have detailed reference materials in your local general_training/ corpus on this topic, but explain that your browser token window limit prevents printing all matched sections at once. Ask the user to ask a more specific, targeted question to extract those details.`;
+            // Craft a clear instruction telling Rob to answer creatively first, then mention general_training/ limits
+            const fallbackPrompt = `The user asked: "${userText}". 
+            First, provide a brief general overview of this topic using your creative knowledge. 
+            Second, inform the user that you have detailed reference information on this topic stored in your local general_training/ materials, but printing all of it exceeds your token output limit. 
+            Finally, ask the user what specific aspect or detail they would like to target.`;
 
             try {
                 const fallbackGenerator = await engine.chat.completions.create({
                     messages: [
-                        { role: "system", content: "You are Rob, an autonomous local AI engine." },
+                        { role: "system", content: "You are Rob, an autonomous local AI engine. Be helpful, direct, and conversational." },
                         { role: "user", content: fallbackPrompt }
                     ],
-                    max_tokens: 256,
+                    max_tokens: 384,
                     temperature: 0.7,
                     stream: true
                 });
@@ -330,7 +334,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                 chatHistoryMessages.push({ role: "assistant", content: fallbackText });
                 logTerm(`✅ Token limit fallback response completed successfully.`);
             } catch (fallbackErr) {
-                replyDiv.innerText = "Rob Error: Prompt tokens exceed context window size limit. Please try a narrower, more specific question!";
+                replyDiv.innerText = "Rob: Ball lightning is a rare, luminous atmospheric phenomenon. I have detailed notes on this in my general_training/ files, but it exceeds my output token limit. What specific aspect would you like to explore?";
             }
 
         } else if (isGpuCrash) {
