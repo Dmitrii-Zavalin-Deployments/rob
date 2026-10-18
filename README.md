@@ -62,8 +62,7 @@ rob/
 
 ---
 
-## 📜 License
+## 📜 License & Corpus Attribution
 
-This project is open-source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](https://github.com/Dmitrii-Zavalin-Deployments/rob/blob/main/LICENSE) file for full details.
-
-
+* **Codebase:** This project's source code is open-source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](https://github.com/Dmitrii-Zavalin-Deployments/rob/blob/main/LICENSE) file for full details.
+* **Knowledge Corpus (`general_training/`):** Portions of the reference text included within the corpus may utilize content adapted from Wikipedia, licensed under the **Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)**.
