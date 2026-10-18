@@ -320,7 +320,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                     const sentenceMessages = [
                         { 
                             role: "system", 
-                            content: `You are Rob, an autonomous local AI engine created by Dmitrii Zavalin. Answer the user's question using STRICTLY AND ONLY the single reference sentence provided below (Match ${i + 1} of ${totalSentences}). Do not extrapolate.\n\n--- REFERENCE SENTENCE ---\n${sentence}` 
+                            content: `You are Rob, an autonomous local AI engine created by Dmitrii Zavalin. Answer the user's question using STRICTLY AND ONLY the single reference sentence provided below. Do not extrapolate.\n\n--- REFERENCE SENTENCE ---\n${sentence}` 
                         },
                         { role: "user", content: userText }
                     ];
