@@ -39,7 +39,8 @@ rob/
 ├── general_training/      # Local knowledge corpus documents & manifest.json
 │   ├── manifest.json      # Knowledge base index file
 │   └── project_aurora_specs.txt
-├── vendor/                # Local dependencies (WebLLM runtime & configs)
+├── vendor/                # Local dependencies (WebLLM runtime, WASM & Qwen2-0.5B model weights)
+│   └── README.md          # Vendor components & Apache 2.0 license breakdown
 ├── app.js                 # Automated pre-boot, storage cleanup & engine launch
 ├── engine.js              # WebGPU engine initializer & WebLLM lifecycle manager
 ├── rag.js                 # Sentence-by-sentence matrix scan & combinatorics RAG
@@ -62,7 +63,8 @@ rob/
 
 ---
 
-## 📜 License & Corpus Attribution
+## 📜 Licenses & Attribution
 
 * **Codebase:** This project's source code is open-source and licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](https://github.com/Dmitrii-Zavalin-Deployments/rob/blob/main/LICENSE) file for full details.
+* **Vendor Dependencies (`vendor/`):** Third-party software modules, WebAssembly binaries, and pre-quantized model weights (`@mlc-ai/web-llm` and `Qwen2-0.5B-Instruct`) bundled within the `vendor/` directory are distributed under the **Apache License 2.0**. For complete vendor component details, see the [vendor/README.md](https://github.com/Dmitrii-Zavalin-Deployments/rob/blob/main/vendor/README.md).
 * **Knowledge Corpus (`general_training/`):** Portions of the reference text included within the corpus may utilize content adapted from Wikipedia, licensed under the **Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)**.
