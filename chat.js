@@ -216,9 +216,9 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    // Run Sentence-by-Sentence Combinatorics RAG Extraction
+    // Run Sentence-by-Sentence Combinatorics RAG Extraction (returns raw array now)
     const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
-    let hasKnowledgeMatch = matchedContext && matchedContext.length > 0;
+    let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
     // Apply manual mode override if user clicked a Redo button
     if (forceMode === 'creative') {
@@ -290,6 +290,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
+        const isTokenOverflow = err.message && err.message.includes('Prompt tokens exceed context window size');
         const isGpuCrash = err.message && (
             err.message.includes("DXGI_ERROR_DEVICE_REMOVED") ||
             err.message.includes("disposed") ||
@@ -298,10 +299,154 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             err.message.includes("Buffer unmapped")
         );
 
-        if (isGpuCrash) {
+        if (isTokenOverflow) {
+            logTerm("⚠️ RAG payload exceeded 2048 token limit. Presenting Pivot Choice window...");
+
+            const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
+            const totalSentences = matchedSentences.length;
+
+            if (totalSentences > 0) {
+                logTerm(`📦 Corpus matches successfully received as an array of ${totalSentences} individual sentence chunks.`);
+
+                // Step 1: Output header and pivot choice box
+                replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus.`;
+
+                const pivotWindow = document.createElement('div');
+                pivotWindow.className = 'pivot-choice-box';
+                pivotWindow.style.cssText = 'margin: 10px 0; padding: 12px; border: 1px solid #30d158; border-radius: 8px; background-color: rgba(48, 209, 88, 0.08);';
+
+                pivotWindow.innerHTML = `
+                  <p style="margin-top: 0; font-weight: bold; color: #30d158;">Would you like to switch to a Creative response instead, or continue with the full data dump of ${totalSentences} matching sentences?</p>
+                  <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                    <button id="btn-creative-pivot" style="background-color: #30d158; color: #000; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                      🟢 Give Creative Response Instead
+                    </button>
+                    <button id="btn-continue-dump" style="background-color: #ff453a; color: #fff; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                      🔴 Continue with General Training Dump (${totalSentences} messages)
+                    </button>
+                  </div>
+                `;
+                replyDiv.appendChild(pivotWindow);
+                history.scrollTop = history.scrollHeight;
+
+                // Helper to execute sequential dumping
+                const executeGeneralDump = async () => {
+                    pivotWindow.remove();
+                    replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus. I will respond in <b>${totalSentences}</b> sequential messages below to ensure zero data loss:`;
+                    
+                    let accumulatedDumpText = `[General Training Corpus Dump: ${totalSentences} sentences]`;
+
+                    for (let i = 0; i < totalSentences; i++) {
+                        const sentence = matchedSentences[i];
+                        logTerm(`🔄 [Chunk Loop] Processing sentence ${i + 1} of ${totalSentences} (Length: ${sentence.length} chars)...`);
+
+                        const sentenceMessages = [
+                            { 
+                                role: "system", 
+                                content: `You are Rob, an autonomous local AI engine created by Dmitrii Zavalin. Answer the user's question using STRICTLY AND ONLY the single reference sentence provided below. Do not extrapolate.\n\n--- REFERENCE SENTENCE ---\n${sentence}` 
+                            },
+                            { role: "user", content: userText }
+                        ];
+
+                        const chunkReplyDiv = document.createElement("div");
+                        chunkReplyDiv.className = "chat-msg chat-rob";
+                        chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> `;
+                        history.appendChild(chunkReplyDiv);
+                        history.scrollTop = history.scrollHeight;
+
+                        try {
+                            const chunkGenerator = await engine.chat.completions.create({
+                                messages: sentenceMessages,
+                                temperature: 0.0,
+                                max_tokens: 150,
+                                stream: true
+                            });
+
+                            let chunkText = "";
+                            for await (const chunk of chunkGenerator) {
+                                const content = chunk.choices[0]?.delta?.content || "";
+                                chunkText += content;
+                                
+                                if (typeof window.marked !== 'undefined' && window.marked.parse) {
+                                    chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> ` + window.marked.parse(chunkText);
+                                } else {
+                                    chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> ` + chunkText;
+                                }
+                                history.scrollTop = history.scrollHeight;
+                            }
+
+                            accumulatedDumpText += `\n[Match ${i + 1}]: ${chunkText}`;
+                            logTerm(`✅ [Chunk Loop] Successfully streamed sentence ${i + 1}/${totalSentences} (${chunkText.length} chars).`);
+
+                        } catch (chunkErr) {
+                            logTerm(`⚠️ Minor note on sentence chunk ${i + 1}: ${chunkErr.message}`);
+                            chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> [Skipped due to generation limit]`;
+                        }
+                    }
+
+                    // If sequential dumping, remove previous user turn from memory array
+                    if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'user') {
+                        chatHistoryMessages.pop();
+                    }
+
+                    logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections.`);
+                };
+
+                // Helper to switch to Creative mode instead
+                const executeCreativePivot = async () => {
+                    pivotWindow.remove();
+                    replyDiv.innerHTML = `<b>Rob:</b> Switched to Creative Response mode...`;
+                    
+                    try {
+                        const creativeMessages = [
+                            { 
+                                role: "system", 
+                                content: `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Be helpful, polite, precise, and conversational.` 
+                            },
+                            { role: "user", content: userText }
+                        ];
+
+                        const creativeGenerator = await engine.chat.completions.create({
+                            messages: creativeMessages,
+                            temperature: 0.5,
+                            max_tokens: 384,
+                            stream: true
+                        });
+
+                        let creativeText = "";
+                        for await (const chunk of creativeGenerator) {
+                            const content = chunk.choices[0]?.delta?.content || "";
+                            creativeText += content;
+
+                            if (typeof window.marked !== 'undefined' && window.marked.parse) {
+                                replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(creativeText);
+                            } else {
+                                replyDiv.innerHTML = "<b>Rob:</b> " + creativeText;
+                            }
+                            history.scrollTop = history.scrollHeight;
+                        }
+
+                        chatHistoryMessages.push({ role: "assistant", content: creativeText });
+                        logTerm(`✅ Creative pivot response completed successfully.`);
+                        renderModeActionCard(replyDiv, false, userText);
+                    } catch (creativeErr) {
+                        logTerm(`🔴 Creative Pivot Error: ${creativeErr.message}`);
+                        replyDiv.innerText = "Rob Error: " + creativeErr.message;
+                    }
+                };
+
+                // Attach event listeners safely
+                document.getElementById('btn-creative-pivot').onclick = executeCreativePivot;
+                document.getElementById('btn-continue-dump').onclick = executeGeneralDump;
+
+            } else {
+                logTerm(`⚠️ Token overflow caught, but matchedSentences array is empty.`);
+                replyDiv.innerText = "Rob Error: Prompt tokens exceed context window size limit. Please try a narrower, more specific question!";
+            }
+
+        } else if (isGpuCrash) {
             logTerm("⚠️ GPU context reset encountered. Displaying compact browser restart and export window.");
             
-            // Neutralize container constraints so the crash window renders as a compact, centered card
             replyDiv.style.background = "transparent";
             replyDiv.style.border = "none";
             replyDiv.style.padding = "0";
@@ -323,7 +468,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                 </div>
             `;
 
-            // Attach event listener safely for the download button
             setTimeout(() => {
                 const dlBtn = document.getElementById("recovery-download-btn");
                 if (dlBtn) dlBtn.onclick = downloadChatAsTxt;
