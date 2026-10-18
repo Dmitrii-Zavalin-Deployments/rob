@@ -300,59 +300,72 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         );
 
         if (isTokenOverflow) {
-            logTerm("⚠️ RAG payload exceeded 2048 token limit. Gracefully falling back to creative mode execution...");
-            
-            // Extract token count from error message if possible, or fallback to standard reported numbers
-            let tokenCount = "2050";
-            const tokenMatch = err.message.match(/number of prompt tokens:\s*(\d+)/i);
-            if (tokenMatch && tokenMatch[1]) {
-                tokenCount = tokenMatch[1];
-            }
+            logTerm("⚠️ RAG payload exceeded 2048 token limit. Initiating 1-Sentence = 1-Chunk Sequential Streaming Loop...");
 
-            try {
-                // Re-run the exact user prompt cleanly in Creative mode (no massive RAG dump in system prompt)
-                const creativeMessages = [
-                    { role: "system", content: "You are Rob, an autonomous local AI engine created by Dmitrii Zavalin. Be helpful, direct, and conversational." },
-                    { role: "user", content: userText }
-                ];
+            const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
+            const totalSentences = matchedSentences.length;
 
-                const fallbackGenerator = await engine.chat.completions.create({
-                    messages: creativeMessages,
-                    max_tokens: 384,
-                    temperature: 0.7,
-                    stream: true
-                });
+            if (totalSentences > 0) {
+                logTerm(`📦 Corpus matches parsed into ${totalSentences} individual sentence chunks for sequential breakdown.`);
 
-                let fallbackText = "";
-                for await (const chunk of fallbackGenerator) {
-                    const content = chunk.choices[0]?.delta?.content || "";
-                    fallbackText += content;
-                    
-                    // Render interim creative response
-                    if (typeof window.marked !== 'undefined' && window.marked.parse) {
-                        replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fallbackText);
-                    } else {
-                        replyDiv.innerHTML = "<b>Rob:</b> " + fallbackText;
-                    }
-                    history.scrollTop = history.scrollHeight;
-                }
-
-                // Append the precise token limitation notice to Rob's string before finalizing
-                const corpusNotice = `\n\n*(Note: I have detailed information on this topic in my \`general_training/\` materials, but it is **${tokenCount} tokens**, while the model's bandwidth limit is **2048 tokens**. Please make your question more detailed or specific to target specific sections from the \`general_training/\` materials!)*`;
-                
-                fallbackText += corpusNotice;
-
-                if (typeof window.marked !== 'undefined' && window.marked.parse) {
-                    replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fallbackText);
-                } else {
-                    replyDiv.innerHTML = "<b>Rob:</b> " + fallbackText;
-                }
+                // Step 1: Announce in the first message bubble how many sequential responses will follow
+                replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus. I will respond in <b>${totalSentences}</b> sequential messages below to ensure zero data loss:`;
                 history.scrollTop = history.scrollHeight;
 
-                chatHistoryMessages.push({ role: "assistant", content: fallbackText });
-                logTerm(`✅ Token limit fallback response completed successfully with token metrics.`);
-            } catch (fallbackErr) {
-                replyDiv.innerText = "Rob: I encountered a token limit overflow while scanning general_training/. Please ask a more specific question!";
+                // Step 2: Loop through each sentence (1 sentence = 1 chunk) programmatically in JavaScript
+                for (let i = 0; i < totalSentences; i++) {
+                    const sentence = matchedSentences[i];
+                    logTerm(`🔄 [Chunk Loop] Processing sentence ${i + 1} of ${totalSentences} (Length: ${sentence.length} chars)...`);
+
+                    const sentenceMessages = [
+                        { 
+                            role: "system", 
+                            content: `You are Rob, an autonomous local AI engine created by Dmitrii Zavalin. Answer the user's question using STRICTLY AND ONLY the single reference sentence provided below (Match ${i + 1} of ${totalSentences}). Do not extrapolate.\n\n--- REFERENCE SENTENCE ---\n${sentence}` 
+                        },
+                        { role: "user", content: userText }
+                    ];
+
+                    // Create a separate consecutive chat message div for this specific sentence chunk
+                    const chunkReplyDiv = document.createElement("div");
+                    chunkReplyDiv.className = "chat-msg chat-rob";
+                    chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> `;
+                    history.appendChild(chunkReplyDiv);
+                    history.scrollTop = history.scrollHeight;
+
+                    try {
+                        const chunkGenerator = await engine.chat.completions.create({
+                            messages: sentenceMessages,
+                            temperature: 0.0,
+                            max_tokens: 150,
+                            stream: true
+                        });
+
+                        let chunkText = "";
+                        for await (const chunk of chunkGenerator) {
+                            const content = chunk.choices[0]?.delta?.content || "";
+                            chunkText += content;
+                            
+                            if (typeof window.marked !== 'undefined' && window.marked.parse) {
+                                chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> ` + window.marked.parse(chunkText);
+                            } else {
+                                chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> ` + chunkText;
+                            }
+                            history.scrollTop = history.scrollHeight;
+                        }
+
+                        logTerm(`✅ [Chunk Loop] Successfully streamed sentence ${i + 1}/${totalSentences} (${chunkText.length} chars).`);
+
+                    } catch (chunkErr) {
+                        logTerm(`⚠️ Minor note on sentence chunk ${i + 1}: ${chunkErr.message}`);
+                        chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> [Skipped due to generation limit]`;
+                    }
+                }
+
+                logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections.`);
+
+            } else {
+                logTerm(`⚠️ Token overflow caught, but no matched sentences array available. Falling back to direct notice.`);
+                replyDiv.innerText = "Rob Error: Prompt tokens exceed context window size limit. Please try a narrower, more specific question!";
             }
 
         } else if (isGpuCrash) {
