@@ -64,7 +64,7 @@ export function getCorpus() {
 export function rankAndExtractRelevantSentences(userQuery) {
     if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
         logTerm("⚠️ RAG Combinatorics: No corpus files loaded.");
-        return "";
+        return [];
     }
 
     logTerm("📡 [rag.js -> RAG Combinatorics] Starting sentence-by-sentence matrix scan...");
@@ -100,7 +100,8 @@ export function rankAndExtractRelevantSentences(userQuery) {
     const matchedArray = Array.from(matchedSentences);
     logTerm(`📊 Combinatorics Scan Complete: ${matchedArray.length} relevant sentence(s) matched.`);
 
-    return matchedArray.join(" ");
+    // Return the raw array so chat.js can iterate through individual sentences directly
+    return matchedArray;
 }
 
 function splitIntoSentences(text) {
