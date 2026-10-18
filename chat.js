@@ -290,6 +290,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
         
+        const isTokenOverflow = err.message && err.message.includes('Prompt tokens exceed context window size');
         const isGpuCrash = err.message && (
             err.message.includes("DXGI_ERROR_DEVICE_REMOVED") ||
             err.message.includes("disposed") ||
@@ -298,7 +299,41 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             err.message.includes("Buffer unmapped")
         );
 
-        if (isGpuCrash) {
+        if (isTokenOverflow) {
+            logTerm("⚠️ RAG payload exceeded 2048 token limit. Gracefully falling back to explanatory notice...");
+            
+            const fallbackPrompt = `The user asked a broad question: "${userText}". Acknowledge politely that you have detailed reference materials in your local general_training/ corpus on this topic, but explain that your browser token window limit prevents printing all matched sections at once. Ask the user to ask a more specific, targeted question to extract those details.`;
+
+            try {
+                const fallbackGenerator = await engine.chat.completions.create({
+                    messages: [
+                        { role: "system", content: "You are Rob, an autonomous local AI engine." },
+                        { role: "user", content: fallbackPrompt }
+                    ],
+                    max_tokens: 256,
+                    temperature: 0.7,
+                    stream: true
+                });
+
+                let fallbackText = "";
+                for await (const chunk of fallbackGenerator) {
+                    const content = chunk.choices[0]?.delta?.content || "";
+                    fallbackText += content;
+                    if (typeof window.marked !== 'undefined' && window.marked.parse) {
+                        replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(fallbackText);
+                    } else {
+                        replyDiv.innerHTML = "<b>Rob:</b> " + fallbackText;
+                    }
+                    history.scrollTop = history.scrollHeight;
+                }
+
+                chatHistoryMessages.push({ role: "assistant", content: fallbackText });
+                logTerm(`✅ Token limit fallback response completed successfully.`);
+            } catch (fallbackErr) {
+                replyDiv.innerText = "Rob Error: Prompt tokens exceed context window size limit. Please try a narrower, more specific question!";
+            }
+
+        } else if (isGpuCrash) {
             logTerm("⚠️ GPU context reset encountered. Displaying compact browser restart and export window.");
             
             // Neutralize container constraints so the crash window renders as a compact, centered card
