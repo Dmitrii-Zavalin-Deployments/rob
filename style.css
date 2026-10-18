@@ -96,6 +96,33 @@ h2 {
     gap: 8px;
 }
 
+/* Engine Tuners Control Panel Styles */
+.tuner-group {
+    margin-bottom: 12px;
+}
+
+.tuner-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+    color: var(--text-main);
+}
+
+.tuner-slider {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--primary-blue);
+    height: 6px;
+}
+
+.tuner-desc {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    margin-top: 2px;
+    line-height: 1.35;
+}
+
 /* Badges Base */
 .status-badge { 
     display: inline-flex; 
