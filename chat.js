@@ -1,6 +1,6 @@
 import { logTerm } from './logger.js';
 import { getEngine, bootRobEngine } from './engine.js';
-import { rankAndExtractRelevantSentences } from './rag.js';
+import { rankAndExtractRelevantSentences, setMatchThreshold } from './rag.js';
 
 console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKeydown, downloadChatAsTxt, warmupEngineContext");
 
@@ -8,6 +8,60 @@ console.log("[Module Loaded] chat.js | Functions: sendChatMessage, handleChatKey
 let chatHistoryMessages = [];
 let isGenerating = false;
 let activeActionCard = null; // Tracks current mode action card in UI
+
+/**
+ * Initializes UI Slider Controls and Reset button listeners.
+ * Ensures the value labels update live and reset behavior functions properly.
+ */
+function initEngineTuners() {
+    const sliderTemp = document.getElementById("slider-temp");
+    const valTemp = document.getElementById("val-temp");
+    const sliderTokens = document.getElementById("slider-tokens");
+    const valTokens = document.getElementById("val-tokens");
+    const sliderMatch = document.getElementById("slider-match");
+    const valMatch = document.getElementById("val-match");
+    const resetBtn = document.getElementById("reset-defaults-btn");
+
+    if (sliderTemp && valTemp) {
+        sliderTemp.oninput = (e) => { valTemp.innerText = e.target.value; };
+    }
+    if (sliderTokens && valTokens) {
+        sliderTokens.oninput = (e) => { valTokens.innerText = e.target.value; };
+    }
+    if (sliderMatch && valMatch) {
+        sliderMatch.oninput = (e) => { 
+            valMatch.innerText = e.target.value; 
+            setMatchThreshold(parseFloat(e.target.value) / 100.0);
+        };
+    }
+
+    if (resetBtn) {
+        resetBtn.onclick = () => {
+            if (sliderTemp && valTemp) {
+                sliderTemp.value = "0.5";
+                valTemp.innerText = "0.5";
+            }
+            if (sliderTokens && valTokens) {
+                sliderTokens.value = "320";
+                valTokens.innerText = "320";
+            }
+            if (sliderMatch && valMatch) {
+                sliderMatch.value = "20";
+                valMatch.innerText = "20";
+                setMatchThreshold(0.20);
+            }
+
+            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.5, Tokens: 320, Match: 20%).");
+        };
+    }
+}
+
+// Execute initialization safely regardless of module loading state
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initEngineTuners);
+} else {
+    initEngineTuners();
+}
 
 /**
  * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
@@ -216,7 +270,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         }
     }
 
-    // Run Sentence-by-Sentence Combinatorics RAG Extraction (returns raw array now)
+    // Run Sentence-by-Sentence Combinatorics RAG Extraction
     const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
     let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
