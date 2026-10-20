@@ -37,21 +37,40 @@ function initEngineTuners() {
 
     if (resetBtn) {
         resetBtn.onclick = () => {
+            // 1. Reset Extreme Mode Checkboxes & Restore Standard Ranges
+            const toggleExtremeTemp = document.getElementById('toggle-extreme-temp');
+            const toggleExtremeTokens = document.getElementById('toggle-extreme-tokens');
+
+            if (toggleExtremeTemp && toggleExtremeTemp.checked) {
+                toggleExtremeTemp.checked = false;
+                toggleTempLimit(toggleExtremeTemp);
+            }
+
+            if (toggleExtremeTokens && toggleExtremeTokens.checked) {
+                toggleExtremeTokens.checked = false;
+                toggleTokenLimit(toggleExtremeTokens);
+            }
+
+            // 2. Reset Temperature Slider
             if (sliderTemp && valTemp) {
                 sliderTemp.value = "0.5";
-                valTemp.innerText = "0.5";
+                valTemp.innerText = "0.50";
             }
+
+            // 3. Reset Response Tokens Slider
             if (sliderTokens && valTokens) {
                 sliderTokens.value = "320";
                 valTokens.innerText = "320";
             }
+
+            // 4. Reset Match Threshold Slider
             if (sliderMatch && valMatch) {
                 sliderMatch.value = "20";
                 valMatch.innerText = "20";
                 setMatchThreshold(0.20);
             }
 
-            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.5, Tokens: 320, Match: 20%).");
+            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 20%, Extreme Modes: OFF).");
         };
     }
 }

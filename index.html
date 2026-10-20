@@ -65,11 +65,19 @@
                     <!-- Tuner 1: Creativity Temperature -->
                     <div class="tuner-group">
                         <div class="tuner-label-row">
-                            <span>🎨 Creativity Temperature: <strong id="val-temp">0.5</strong></span>
+                            <span>🎨 Creativity Temperature: <strong id="val-temp">0.50</strong></span>
                         </div>
-                        <input type="range" id="slider-temp" min="0.0" max="1.5" step="0.05" value="0.5" class="tuner-slider">
-                        <div class="tuner-desc">
-                            Controls randomness in Creative mode (Strict RAG mode remains locked at 0.0). Higher = more imaginative (up to 1.5).
+                        <input type="range" id="slider-temp" min="0.0" max="1.0" step="0.05" value="0.5" class="tuner-slider" oninput="document.getElementById('val-temp').innerText = parseFloat(this.value).toFixed(2)">
+                        
+                        <div style="margin-top: 8px; font-size: 0.85em; color: #888;">
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                <input type="checkbox" id="toggle-extreme-temp" onchange="toggleTempLimit(this)">
+                                <span>⚡ Unlock Extreme Temperature (up to 5.00 — chaos / stochastic testing)</span>
+                            </label>
+                        </div>
+
+                        <div class="tuner-desc" id="temp-desc" style="margin-top: 6px;">
+                            Controls sampling entropy (Strict RAG locks at 0.0). Standard range: 0.0 (factual) to 1.0 (creative).
                         </div>
                     </div>
 
@@ -78,11 +86,65 @@
                         <div class="tuner-label-row">
                             <span>📏 Max Response Tokens: <strong id="val-tokens">320</strong></span>
                         </div>
-                        <input type="range" id="slider-tokens" min="32" max="1024" step="32" value="320" class="tuner-slider">
-                        <div class="tuner-desc">
-                            Limits the maximum length of Rob's generated responses (32 = ultra-concise; 1024 = deep long-form output).
+                        <input type="range" id="slider-tokens" min="1" max="2048" step="32" value="320" class="tuner-slider" oninput="document.getElementById('val-tokens').innerText = this.value">
+                        
+                        <div style="margin-top: 8px; font-size: 0.85em; color: #888;">
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                                <input type="checkbox" id="toggle-extreme-tokens" onchange="toggleTokenLimit(this)">
+                                <span>⚡ Unlock Extreme Tokens (0 to 32,768 tokens — native Qwen2 architectural max)</span>
+                            </label>
+                        </div>
+
+                        <div class="tuner-desc" id="tokens-desc" style="margin-top: 6px;">
+                            Limits the maximum length of Rob's generated responses (Standard range: 1 to 2048 tokens).
                         </div>
                     </div>
+
+                    <script>
+                    function toggleTempLimit(checkbox) {
+                        const slider = document.getElementById('slider-temp');
+                        const valDisplay = document.getElementById('val-temp');
+                        const descDisplay = document.getElementById('temp-desc');
+                        
+                        if (checkbox.checked) {
+                            slider.max = "5.0";
+                            slider.step = "0.1";
+                            descDisplay.innerText = "⚡ Extreme Mode Active (0.0 to 5.0): High entropy mode. Values above 2.0 generate stochastic noise and gibberish.";
+                        } else {
+                            slider.max = "1.0";
+                            slider.step = "0.05";
+                            descDisplay.innerText = "Controls sampling entropy (Strict RAG locks at 0.0). Standard range: 0.0 (factual) to 1.0 (creative).";
+                            
+                            if (parseFloat(slider.value) > 1.0) {
+                                slider.value = "1.0";
+                                if (valDisplay) valDisplay.innerText = "1.00";
+                            }
+                        }
+                    }
+
+                    function toggleTokenLimit(checkbox) {
+                        const slider = document.getElementById('slider-tokens');
+                        const valDisplay = document.getElementById('val-tokens');
+                        const descDisplay = document.getElementById('tokens-desc');
+                        
+                        if (checkbox.checked) {
+                            slider.min = "0";
+                            slider.max = "32768";
+                            slider.step = "64";
+                            descDisplay.innerText = "⚡ Extreme Mode Active (0 to 32,768 tokens): Native Qwen2 capacity. High VRAM required for large outputs.";
+                        } else {
+                            slider.min = "1";
+                            slider.max = "2048";
+                            slider.step = "32";
+                            descDisplay.innerText = "Limits the maximum length of Rob's generated responses (Standard range: 1 to 2048 tokens).";
+                            
+                            if (parseInt(slider.value) > 2048) {
+                                slider.value = "2048";
+                                if (valDisplay) valDisplay.innerText = "2048";
+                            }
+                        }
+                    }
+                    </script>
 
                     <!-- Tuner 3: RAG Match Threshold -->
                     <div class="tuner-group" style="margin-bottom: 0;">
