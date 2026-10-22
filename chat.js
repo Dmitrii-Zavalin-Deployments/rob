@@ -275,49 +275,17 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         logTerm(`🔄 [chat.js -> Regeneration] User requested re-generation in mode: ${forceMode}`);
     }
 
-    // Display temporary system search status in chat window & log to terminal
-    const searchStatusText = "Looking for the answer in the text files from general_training/ (see 📡 System Terminal for details)";
-    logTerm(`📡 ${searchStatusText}`);
-    
-    const statusDiv = document.createElement("div");
-    statusDiv.className = "chat-msg chat-system";
-    statusDiv.style.cssText = "color: #7f8c8d; font-style: italic; margin: 4px 0;";
-    statusDiv.innerHTML = `📡 ${searchStatusText}`;
-    history.appendChild(statusDiv);
-    history.scrollTop = history.scrollHeight;
-
-    // Resolve implicit pronouns ("it", "this", "that") using recent history for RAG lookup
-    let ragSearchQuery = userText;
-    const implicitPronouns = /\b(it|its|they|them|their|this|that|project|topic|discussing)\b/i;
-
-    if (implicitPronouns.test(userText) && chatHistoryMessages.length > 2) {
-        const lastUserMsg = [...chatHistoryMessages].reverse().find(m => m.role === 'user');
-        if (lastUserMsg) {
-            ragSearchQuery = `${lastUserMsg.content} ${userText}`;
-            logTerm(`🔄 [chat.js -> Query Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
-        }
-    }
-
-    // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
-        // Optional live streaming callback during corpus scan
-    });
-    let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
-
     // ==========================================
     // 1. STRICT VERBATIM RAG BYPASS MODE EXECUTION
     // ==========================================
     if (isVerbatimBypassActive) {
         logTerm(`🔒 [Verbatim Bypass Mode] Direct buffer stream active. Bypassing history injection.`);
         
+        const matchedContext = await rankAndExtractRelevantSentences(userText, () => {});
         const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
         if (!isRedo) {
             replyDiv.className = "chat-msg chat-rob";
             history.appendChild(replyDiv);
-        }
-
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
         }
 
         const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
@@ -347,6 +315,39 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     }
     // ==========================================
 
+    // Display temporary system search status in chat window & log to terminal
+    const searchStatusText = "Looking for the answer in the text files from general_training/ (see 📡 System Terminal for details)";
+    logTerm(`📡 ${searchStatusText}`);
+    
+    const statusDiv = document.createElement("div");
+    statusDiv.className = "chat-msg chat-system";
+    statusDiv.style.cssText = "color: #7f8c8d; font-style: italic; margin: 4px 0;";
+    statusDiv.innerHTML = `📡 ${searchStatusText}`;
+    history.appendChild(statusDiv);
+    history.scrollTop = history.scrollHeight;
+
+    // Resolve implicit pronouns ("it", "this", "that") using recent history for RAG lookup
+    let ragSearchQuery = userText;
+    const implicitPronouns = /\b(it|its|they|them|their|this|that|project|topic|discussing)\b/i;
+
+    if (implicitPronouns.test(userText) && chatHistoryMessages.length > 2) {
+        const lastUserMsg = [...chatHistoryMessages].reverse().find(m => m.role === 'user');
+        if (lastUserMsg) {
+            ragSearchQuery = `${lastUserMsg.content} ${userText}`;
+            logTerm(`🔄 [chat.js -> Query Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
+        }
+    }
+
+    // Run Sentence-by-Sentence Combinatorics RAG Extraction
+    const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
+        // Optional live streaming callback during corpus scan
+    });
+    let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
+
+    if (statusDiv && statusDiv.parentNode) {
+        statusDiv.parentNode.removeChild(statusDiv);
+    }
+
     // Apply manual mode override if user clicked a Redo button
     if (forceMode === 'creative') {
         hasKnowledgeMatch = false;
@@ -362,10 +363,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         if (!isRedo) {
             replyDiv.className = "chat-msg chat-rob";
             history.appendChild(replyDiv);
-        }
-
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
         }
 
         const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
@@ -404,14 +401,10 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         chatHistoryMessages[0] = { role: "system", content: systemInstruction };
     }
 
-    if (!isRedo) {
-        chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
-        chatHistoryMessages.push({ role: "user", content: userText });
-    } else {
-        if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'assistant') {
-            chatHistoryMessages.pop();
-        }
-    }
+    // Prepare temporary messages array for creative generation without polluting history yet
+    const tempMessages = [...chatHistoryMessages];
+    const cleanedTempMessages = deduplicateChatHistory(tempMessages, userText, 0.6);
+    cleanedTempMessages.push({ role: "user", content: userText });
 
     // Read live values from Control Panel sliders
     const sliderTemp = document.getElementById("slider-temp");
@@ -431,7 +424,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
-            messages: chatHistoryMessages,
+            messages: cleanedTempMessages,
             temperature: userTempSetting,
             max_tokens: userMaxTokensSetting,
             stream: true
@@ -450,13 +443,10 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             history.scrollTop = history.scrollHeight;
         }
 
-        // Store Rob's answer in dialogue history for subsequent turns
-        chatHistoryMessages.push({ role: "assistant", content: fullText });
-
         logTerm(`✅ Streaming response completed successfully (${fullText.length} characters).`);
 
-        // Render interactive Creative Mode Action Card UI below response
-        renderCreativeActionCard(replyDiv, userText);
+        // Render interactive Creative Action Card UI with manual "Remember" button
+        renderCreativeActionCard(replyDiv, userText, fullText);
 
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
@@ -590,9 +580,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                             history.scrollTop = history.scrollHeight;
                         }
 
-                        chatHistoryMessages.push({ role: "assistant", content: creativeText });
-                        logTerm(`✅ Creative pivot response completed successfully.`);
-                        renderCreativeActionCard(replyDiv, userText);
+                        renderCreativeActionCard(replyDiv, userText, creativeText);
                     } catch (creativeErr) {
                         logTerm(`🔴 Creative Pivot Error: ${creativeErr.message}`);
                         replyDiv.innerText = "Rob Error: " + creativeErr.message;
@@ -640,10 +628,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             replyDiv.innerText = "Rob Error: " + err.message;
         }
     } finally {
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
-        }
-
         isGenerating = false;
         inputField.disabled = false;
         sendBtn.disabled = false;
@@ -704,9 +688,9 @@ function renderStrictMemoryActionCard(targetReplyDiv, userQuery, groundedText) {
 }
 
 /**
- * Renders Action Card for Creative Mode with brainstorming disclaimer & redo button
+ * Renders Action Card for Creative Mode with manual memory button, brainstorming disclaimer & redo button
  */
-function renderCreativeActionCard(targetReplyDiv, userQuery) {
+function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText) {
     const actionCard = document.createElement("div");
     activeActionCard = actionCard;
     actionCard.className = "mode-action-card";
@@ -728,16 +712,29 @@ function renderCreativeActionCard(targetReplyDiv, userQuery) {
             ⚠️ This information may be incorrect as it's generated under creativity temperature and should be used for brainstorming only, not as a fact (until correctness is checked).
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
+                🧠 Remember this information
+            </button>
             <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
                 🎨 Redo in Creative Mode
             </button>
-            <button class="keep-btn" style="background: #0a84ff; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+            <button class="keep-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
                 ✅ Keep Response & Continue
             </button>
         </div>
     `;
 
     targetReplyDiv.after(actionCard);
+
+    actionCard.querySelector('.remember-info-btn').onclick = () => {
+        chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userQuery, 0.6);
+        chatHistoryMessages.push({ role: "user", content: userQuery });
+        chatHistoryMessages.push({ role: "assistant", content: assistantReplyText });
+        logTerm(`🧠 [Manual Memory Curation] Creative response explicitly committed to session memory.`);
+        actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
+        actionCard.querySelector('.remember-info-btn').disabled = true;
+        actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
 
     actionCard.querySelector('.redo-creative-btn').onclick = () => {
         logTerm("🎨 User selected: Redo in Creative Mode");
