@@ -89,7 +89,8 @@ if (document.readyState === 'loading') {
 }
 
 /**
- * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
+ * Calculates query containment ratio: what fraction of words in str1 (query) exist inside str2 (target).
+ * Returns a normalized value between 0.0 and 1.0.
  */
 function getSimilarityScore(str1, str2) {
     const s1 = str1.toLowerCase().trim();
@@ -99,13 +100,14 @@ function getSimilarityScore(str1, str2) {
     const words1 = new Set(s1.split(/\s+/));
     const words2 = new Set(s2.split(/\s+/));
     
+    if (words1.size === 0) return 0;
+
     let intersection = 0;
     for (let word of words1) {
         if (words2.has(word)) intersection++;
     }
     
-    const union = new Set([...words1, ...words2]).size;
-    return union === 0 ? 0 : (intersection / union);
+    return intersection / words1.size;
 }
 
 /**
