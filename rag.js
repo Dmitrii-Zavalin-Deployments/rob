@@ -35,7 +35,8 @@ export async function loadGeneralTrainingCorpus() {
         logTerm(`📄 Manifest parsed. Found ${filenames.length} file entries.`);
         
         generalKnowledgeCorpus = [];
-        for (let filename of filenames) {
+        for (let i = 0; i < filenames.length; i++) {
+            const filename = filenames[i];
             const fileUrl = `${basePath}general_training/${filename}?v=${Date.now()}`;
             logTerm(`📥 Downloading knowledge file: ${filename}`);
             
@@ -46,6 +47,11 @@ export async function loadGeneralTrainingCorpus() {
                 logTerm(`✅ Loaded "${filename}" successfully (${content.length} characters).`);
             } else {
                 logTerm(`❌ Failed to load file "${filename}" (HTTP ${fileRes.status})`);
+            }
+
+            // Yield control periodically during file loading to keep UI responsive
+            if (i % 50 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
 
@@ -68,10 +74,10 @@ export function getCorpus() {
 }
 
 /**
-- Sentence-by-Sentence Combinatorics Matcher
-- Compares user query sentences against document sentences and logs matches in the terminal.
+ * Sentence-by-Sentence Combinatorics Matcher
+ * Compares user query sentences against document sentences and logs matches in the terminal.
  */
-export function rankAndExtractRelevantSentences(userQuery) {
+export async function rankAndExtractRelevantSentences(userQuery, onProgressCallback) {
     if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
         logTerm("⚠️ RAG Combinatorics: No corpus files loaded.");
         return [];
@@ -83,10 +89,13 @@ export function rankAndExtractRelevantSentences(userQuery) {
     logTerm(`🔍 Query decomposed into ${querySentences.length} sentence(s).`);
 
     const matchedSentences = new Set();
+    let totalMatchesFound = 0;
 
-    for (const doc of generalKnowledgeCorpus) {
-        logTerm(`📄 Scanning document: "${doc.name}"...`);
+    for (let docIdx = 0; docIdx < generalKnowledgeCorpus.length; docIdx++) {
+        const doc = generalKnowledgeCorpus[docIdx];
         const docSentences = splitIntoSentences(doc.content);
+        let fileMatchCount = 0;
+        let fileMatchedArray = [];
         
         for (let qIdx = 0; qIdx < querySentences.length; qIdx++) {
             const qSent = querySentences[qIdx];
@@ -99,18 +108,36 @@ export function rankAndExtractRelevantSentences(userQuery) {
 
                 const score = calculateOverlapScore(qTokens, dTokens);
 
-                if (score >= currentMatchThreshold) { // Dynamic threshold from control panel
-                    logTerm(`🎯 MATCH FOUND [Score: ${Math.round(score * 100)}%] | Query S#${qIdx + 1} ↔ Doc S#${dIdx + 1}: "${dSent.trim()}"`);
-                    matchedSentences.add(dSent.trim());
+                if (score >= currentMatchThreshold) {
+                    logTerm(`🎯 MATCH FOUND [Score: ${Math.round(score * 100)}%] | Query S#${qIdx + 1} ↔ Doc S#${dIdx + 1} (${doc.name}): "${dSent.trim()}"`);
+                    const trimmed = dSent.trim();
+                    if (!matchedSentences.has(trimmed)) {
+                        matchedSentences.add(trimmed);
+                        fileMatchedArray.push(trimmed);
+                        fileMatchCount++;
+                    }
                 }
             }
         }
+
+        // Log file scan progress & stream live matches if any found
+        if (fileMatchCount > 0) {
+            totalMatchesFound += fileMatchCount;
+            logTerm(`📄 [${docIdx + 1}/${generalKnowledgeCorpus.length}] ${doc.name}: Found ${fileMatchCount} matching sentence(s).`);
+            if (typeof onProgressCallback === 'function') {
+                onProgressCallback(doc.name, fileMatchedArray);
+            }
+        } else {
+            logTerm(`📄 Scanning [${docIdx + 1}/${generalKnowledgeCorpus.length}]: ${doc.name}...`);
+        }
+
+        // YIELD TO MAIN THREAD: Prevents browser freeze by yielding after every single page scan
+        await new Promise(resolve => setTimeout(resolve, 0));
     }
 
     const matchedArray = Array.from(matchedSentences);
     logTerm(`📊 Combinatorics Scan Complete: ${matchedArray.length} relevant sentence(s) matched.`);
 
-    // Return the raw array so chat.js can iterate through individual sentences directly
     return matchedArray;
 }
 
