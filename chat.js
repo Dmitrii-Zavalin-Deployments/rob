@@ -337,17 +337,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     history.appendChild(statusDiv);
     history.scrollTop = history.scrollHeight;
 
-    // Resolve implicit pronouns ("it", "this", "that") using recent history for RAG lookup
-    let ragSearchQuery = userText;
-    const implicitPronouns = /\b(it|its|they|them|their|this|that|project|topic|discussing)\b/i;
-
-    if (implicitPronouns.test(userText) && chatHistoryMessages.length > 2) {
-        const lastUserMsg = [...chatHistoryMessages].reverse().find(m => m.role === 'user');
-        if (lastUserMsg) {
-            ragSearchQuery = `${lastUserMsg.content} ${userText}`;
-            logTerm(`🔄 [chat.js -> Query Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
-        }
-    }
+    // Strict 1 Query = 1 Response Isolation (no history prepending during search)
+    const ragSearchQuery = userText;
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
     const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
