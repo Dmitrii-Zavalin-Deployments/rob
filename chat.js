@@ -320,7 +320,9 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     }
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
+    const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
+        // Optional live streaming callback during corpus scan
+    });
     let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
     // ==========================================
