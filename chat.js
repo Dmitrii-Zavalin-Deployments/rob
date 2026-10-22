@@ -215,6 +215,34 @@ function finalizePreviousActionCard() {
     }
 }
 
+/**
+ * Helper to generate a deterministic text summary from chatHistoryMessages without LLM inference.
+ */
+function renderChatSummaryView(targetContainer) {
+    const assistantTurns = chatHistoryMessages.filter(m => m.role === 'assistant');
+    
+    if (assistantTurns.length === 0) {
+        alert("No assistant history recorded in memory yet!");
+        return;
+    }
+
+    let summaryHtml = `<div class="chat-summary-box" style="margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">`;
+    summaryHtml += `<b>📜 Cumulative Chat History Summary (${assistantTurns.length} recorded responses):</b><br><br>`;
+    
+    assistantTurns.forEach((turn, idx) => {
+        summaryHtml += `<div style="margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;"><b>[Turn ${idx + 1}]:</b> ${escapeHtml(turn.content)}</div>`;
+    });
+    summaryHtml += `</div>`;
+
+    const existingSummary = targetContainer.querySelector('.chat-summary-box');
+    if (existingSummary) {
+        existingSummary.remove();
+    }
+
+    targetContainer.insertAdjacentHTML('beforeend', summaryHtml);
+    logTerm(`📜 [Chat Summary] Generated deterministic summary from ${assistantTurns.length} recorded assistant messages.`);
+}
+
 export async function sendChatMessage(forceMode = null, targetReplyDiv = null, lastUserQuery = null) {
     if (isGenerating) return;
 
@@ -514,6 +542,9 @@ function renderStrictMemoryActionCard(targetReplyDiv, userQuery, groundedText) {
             <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
                 🧠 Remember this information
             </button>
+            <button class="summarize-chat-btn" style="background: #5856d6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                📜 Summarize Chat
+            </button>
             <button class="keep-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
                 ✅ Keep Response & Continue
             </button>
@@ -530,6 +561,10 @@ function renderStrictMemoryActionCard(targetReplyDiv, userQuery, groundedText) {
         actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
         actionCard.querySelector('.remember-info-btn').disabled = true;
         actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
+
+    actionCard.querySelector('.summarize-chat-btn').onclick = () => {
+        renderChatSummaryView(actionCard);
     };
 
     actionCard.querySelector('.keep-btn').onclick = () => {
@@ -566,6 +601,9 @@ function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText)
             <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
                 🧠 Remember this information
             </button>
+            <button class="summarize-chat-btn" style="background: #5856d6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                📜 Summarize Chat
+            </button>
             <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
                 🎨 Redo in Creative Mode
             </button>
@@ -585,6 +623,10 @@ function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText)
         actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
         actionCard.querySelector('.remember-info-btn').disabled = true;
         actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
+
+    actionCard.querySelector('.summarize-chat-btn').onclick = () => {
+        renderChatSummaryView(actionCard);
     };
 
     actionCard.querySelector('.redo-creative-btn').onclick = () => {
