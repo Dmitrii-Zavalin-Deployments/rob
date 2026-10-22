@@ -10,8 +10,8 @@ let isGenerating = false;
 let activeActionCard = null; // Tracks current mode action card in UI
 
 /**
- * Initializes UI Slider Controls and Reset button listeners.
- * Ensures the value labels update live and reset behavior functions properly.
+- Initializes UI Slider Controls and Reset button listeners.
+- Ensures the value labels update live and reset behavior functions properly.
  */
 function initEngineTuners() {
     const sliderTemp = document.getElementById("slider-temp");
@@ -40,6 +40,7 @@ function initEngineTuners() {
             // 1. Reset Extreme Mode Checkboxes & Restore Standard Ranges
             const toggleExtremeTemp = document.getElementById('toggle-extreme-temp');
             const toggleExtremeTokens = document.getElementById('toggle-extreme-tokens');
+            const toggleVerbatimBypass = document.getElementById('toggle-verbatim-bypass');
 
             if (toggleExtremeTemp && toggleExtremeTemp.checked) {
                 toggleExtremeTemp.checked = false;
@@ -49,6 +50,11 @@ function initEngineTuners() {
             if (toggleExtremeTokens && toggleExtremeTokens.checked) {
                 toggleExtremeTokens.checked = false;
                 toggleTokenLimit(toggleExtremeTokens);
+            }
+
+            if (toggleVerbatimBypass && toggleVerbatimBypass.checked) {
+                toggleVerbatimBypass.checked = false;
+                toggleVerbatimBypass(toggleVerbatimBypass);
             }
 
             // 2. Reset Temperature Slider
@@ -70,7 +76,7 @@ function initEngineTuners() {
                 setMatchThreshold(0.20);
             }
 
-            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 20%, Extreme Modes: OFF).");
+            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 20%, Extreme/Bypass Modes: OFF).");
         };
     }
 }
@@ -83,7 +89,7 @@ if (document.readyState === 'loading') {
 }
 
 /**
- * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
+- Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
  */
 function getSimilarityScore(str1, str2) {
     const s1 = str1.toLowerCase().trim();
@@ -103,8 +109,8 @@ function getSimilarityScore(str1, str2) {
 }
 
 /**
- * Scans chatHistoryMessages for previous user turns similar to incomingUserText.
- * If a match (>= similarityThreshold) is found, prunes that user turn and its assistant reply.
+- Scans chatHistoryMessages for previous user turns similar to incomingUserText.
+- If a match (>= similarityThreshold) is found, prunes that user turn and its assistant reply.
  */
 function deduplicateChatHistory(history, incomingUserText, similarityThreshold = 0.6) {
     if (history.length <= 1) return history; // System prompt only
@@ -136,8 +142,8 @@ function deduplicateChatHistory(history, incomingUserText, similarityThreshold =
 }
 
 /**
- * Silent Warm-up Function
- * Accepts the engine instance directly to pre-compile WebGPU execution pipelines.
+- Silent Warm-up Function
+- Accepts the engine instance directly to pre-compile WebGPU execution pipelines.
  */
 export async function warmupEngineContext(engineInstance) {
     if (!engineInstance) {
@@ -193,7 +199,7 @@ export function handleChatKeydown(event) {
 }
 
 /**
- * Formats System Instructions based on desired generation mode.
+- Formats System Instructions based on desired generation mode.
  */
 function buildSystemInstruction(hasKnowledgeMatch, matchedContext) {
     const baseIdentity = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Your name is Rob. Never claim to be Dmitrii Zavalin or confuse your identity with the user. Do not repeat greeting introductions or boilerplate self-identifications in multi-turn conversations; answer the user's question directly.`;
@@ -217,7 +223,7 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
 }
 
 /**
- * Clears active Action Controls card when continuing discussion.
+- Clears active Action Controls card when continuing discussion.
  */
 function finalizePreviousActionCard() {
     if (activeActionCard && activeActionCard.parentNode) {
@@ -242,8 +248,11 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
     if (!userText) return;
 
-    // Auto-recover if engine is missing or uninitialized
-    if (!engine) {
+    // Check if Strict Verbatim RAG Bypass mode is enabled
+    const verbatimBypassCheckbox = document.getElementById('toggle-verbatim-bypass');
+    const isVerbatimBypassActive = verbatimBypassCheckbox && verbatimBypassCheckbox.checked;
+
+    if (!isVerbatimBypassActive && !engine) {
         logTerm("⚠️ Engine instance not ready. Attempting auto-boot...");
         await bootRobEngine();
         engine = getEngine();
@@ -292,6 +301,49 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
     const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
     let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
+
+    // ==========================================
+    // STRICT VERBATIM RAG BYPASS MODE EXECUTION
+    // ==========================================
+    if (isVerbatimBypassActive) {
+        logTerm(`🔒 [Verbatim Bypass Mode] Direct buffer stream active. Bypassing LLM model generation entirely.`);
+        
+        const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
+        if (!isRedo) {
+            replyDiv.className = "chat-msg chat-rob";
+            history.appendChild(replyDiv);
+        }
+
+        if (statusDiv && statusDiv.parentNode) {
+            statusDiv.parentNode.removeChild(statusDiv);
+        }
+
+        const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
+        const totalSentences = matchedSentences.length;
+
+        if (totalSentences > 0) {
+            logTerm(`📦 [Verbatim Bypass] Streaming ${totalSentences} matched sentence chunks directly from buffer.`);
+            replyDiv.innerHTML = `<b>Rob [Verbatim RAG Bypass]:</b> Found <b>${totalSentences}</b> matching sentences in corpus:<br><br>`;
+
+            let bufferHtml = "";
+            for (let i = 0; i < totalSentences; i++) {
+                const sentence = matchedSentences[i];
+                bufferHtml += `<div style="margin-bottom: 8px; padding: 6px 10px; background: rgba(0, 210, 255, 0.04); border-left: 3px solid #00d2ff; font-family: monospace; font-size: 13px;"><b>[Match ${i + 1}/${totalSentences}]:</b> ${escapeHtml(sentence)}</div>`;
+            }
+            replyDiv.innerHTML += bufferHtml;
+        } else {
+            logTerm(`⚠️ [Verbatim Bypass] Combinatorics scan complete: 0 relevant sentences matched.`);
+            replyDiv.innerHTML = `<b>Rob [Verbatim RAG Bypass]:</b> 0 relevant sentences matched in corpus for query: "<code>${escapeHtml(userText)}</code>".`;
+        }
+
+        history.scrollTop = history.scrollHeight;
+        isGenerating = false;
+        inputField.disabled = false;
+        sendBtn.disabled = false;
+        inputField.focus();
+        return;
+    }
+    // ==========================================
 
     // Apply manual mode override if user clicked a Redo button
     if (forceMode === 'creative') {
@@ -566,7 +618,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 }
 
 /**
- * Renders the color-coded technical mode badge & action buttons below Rob's message
+- Renders the color-coded technical mode badge & action buttons below Rob's message
  */
 function renderModeActionCard(targetReplyDiv, isStrict, userQuery) {
     const actionCard = document.createElement("div");

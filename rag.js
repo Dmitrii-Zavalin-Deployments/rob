@@ -68,8 +68,8 @@ export function getCorpus() {
 }
 
 /**
- * Sentence-by-Sentence Combinatorics Matcher
- * Compares user query sentences against document sentences and logs matches in the terminal.
+- Sentence-by-Sentence Combinatorics Matcher
+- Compares user query sentences against document sentences and logs matches in the terminal.
  */
 export function rankAndExtractRelevantSentences(userQuery) {
     if (!generalKnowledgeCorpus || generalKnowledgeCorpus.length === 0) {
@@ -99,7 +99,7 @@ export function rankAndExtractRelevantSentences(userQuery) {
 
                 const score = calculateOverlapScore(qTokens, dTokens);
 
-                if (score > currentMatchThreshold) { // Dynamic threshold from control panel
+                if (score >= currentMatchThreshold) { // Dynamic threshold from control panel
                     logTerm(`🎯 MATCH FOUND [Score: ${Math.round(score * 100)}%] | Query S#${qIdx + 1} ↔ Doc S#${dIdx + 1}: "${dSent.trim()}"`);
                     matchedSentences.add(dSent.trim());
                 }
