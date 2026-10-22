@@ -232,6 +232,28 @@ function finalizePreviousActionCard() {
     }
 }
 
+/**
+ * Safely wraps LLM-extracted keywords in highlight tags within a verbatim sentence string.
+ */
+function highlightVerbatimSentence(sentence, keywordsToHighlight) {
+    let safeHtml = escapeHtml(sentence);
+    if (!keywordsToHighlight || !Array.isArray(keywordsToHighlight) || keywordsToHighlight.length === 0) {
+        return safeHtml;
+    }
+
+    keywordsToHighlight.forEach(kw => {
+        if (typeof kw === 'string' && kw.trim().length > 1) {
+            const trimmedKw = kw.trim();
+            // Escape special regex characters in the keyword
+            const regexEscaped = trimmedKw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+            const regex = new RegExp(`(${regexEscaped})`, 'gi');
+            safeHtml = safeHtml.replace(regex, `<mark style="background: rgba(255, 215, 0, 0.35); color: #fff; padding: 1px 4px; border-radius: 3px; font-weight: bold;">$1</mark>`);
+        }
+    });
+
+    return safeHtml;
+}
+
 export async function sendChatMessage(forceMode = null, targetReplyDiv = null, lastUserQuery = null) {
     if (isGenerating) return;
 
@@ -305,7 +327,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
     // ==========================================
-    // STRICT VERBATIM RAG BYPASS MODE EXECUTION
+    // 1. STRICT VERBATIM RAG BYPASS MODE EXECUTION
     // ==========================================
     if (isVerbatimBypassActive) {
         logTerm(`🔒 [Verbatim Bypass Mode] Direct buffer stream active. Bypassing LLM model generation entirely.`);
@@ -354,7 +376,111 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         hasKnowledgeMatch = true;
     }
 
-    const systemInstruction = buildSystemInstruction(hasKnowledgeMatch, matchedContext);
+    // ==========================================
+    // 2. STRICT KNOWLEDGE MODE (ZERO-MATCH REFUSAL GUARDRAIL)
+    // ==========================================
+    if (forceMode !== 'creative' && !hasKnowledgeMatch) {
+        logTerm(`⚠️ [Strict Knowledge Guardrail] 0 corpus matches found for query: "${userText}" at current threshold.`);
+        
+        const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
+        if (!isRedo) {
+            replyDiv.className = "chat-msg chat-rob";
+            history.appendChild(replyDiv);
+        }
+
+        if (statusDiv && statusDiv.parentNode) {
+            statusDiv.parentNode.removeChild(statusDiv);
+        }
+
+        replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> No information regarding "<code>${escapeHtml(userText)}</code>" is available in the <code>general_training/</code> corpus. <br><br><small style="color: #888;">💡 <i>Tip: Please ease the RAG Match Threshold percentage slider or adjust your search query to find matching records.</i></small>`;
+
+        renderModeActionCard(replyDiv, true, userText);
+
+        history.scrollTop = history.scrollHeight;
+        isGenerating = false;
+        inputField.disabled = false;
+        sendBtn.disabled = false;
+        inputField.focus();
+        return;
+    }
+    // ==========================================
+
+    // ==========================================
+    // 2B. STRICT KNOWLEDGE MODE (DETERMINISTIC PRINT + LLM HIGHLIGHTER)
+    // ==========================================
+    if (hasKnowledgeMatch && forceMode !== 'creative') {
+        logTerm(`🔴 [Strict Knowledge Mode] Matched ${matchedContext.length} sentences. Printing verbatim text from buffer and requesting LLM keyword highlights...`);
+
+        const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
+        if (!isRedo) {
+            replyDiv.className = "chat-msg chat-rob";
+            history.appendChild(replyDiv);
+        }
+
+        if (statusDiv && statusDiv.parentNode) {
+            statusDiv.parentNode.removeChild(statusDiv);
+        }
+
+        const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
+        const totalSentences = matchedSentences.length;
+
+        replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> Found <b>${totalSentences}</b> grounded sentences in <code>general_training/</code> corpus:<br><br>`;
+
+        // Request key terms/entities to highlight from local LLM
+        let highlightedKeywords = [];
+        try {
+            const promptForHighlighter = [
+                {
+                    role: "system",
+                    content: `You are an AI Keyword Extractor. Given a user query and a context sentence, return ONLY a JSON array of specific key terms, names, technologies, or numbers from the sentence that match the user query concepts. Example output: ["Dmitrii Zavalin", "Atlantis"]. Do not output markdown or extra commentary.`
+                },
+                {
+                    role: "user",
+                    content: `Query: "${userText}"\nSentence: "${matchedSentences[0]}"`
+                }
+            ];
+
+            const hlGenerator = await engine.chat.completions.create({
+                messages: promptForHighlighter,
+                temperature: 0.0,
+                max_tokens: 64,
+                stream: false
+            });
+
+            const hlReply = hlGenerator.choices[0]?.message?.content || "";
+            const jsonMatch = hlReply.match(/\[.*?\]/s);
+            if (jsonMatch) {
+                highlightedKeywords = JSON.parse(jsonMatch[0]);
+                logTerm(`🎯 [LLM Smart Highlighter] Identified key terms to highlight: ${JSON.stringify(highlightedKeywords)}`);
+            }
+        } catch (hlErr) {
+            logTerm(`⚠️ [LLM Smart Highlighter Note] Non-critical error extracting highlight tags: ${hlErr.message}`);
+        }
+
+        // Render verbatim sentences with safe frontend highlight markup
+        let bufferHtml = "";
+        for (let i = 0; i < totalSentences; i++) {
+            const sentence = matchedSentences[i];
+            const highlightedText = highlightVerbatimSentence(sentence, highlightedKeywords);
+            bufferHtml += `<div style="margin-bottom: 8px; padding: 6px 10px; background: rgba(255, 69, 58, 0.04); border-left: 3px solid #ff453a; font-family: monospace; font-size: 13px;"><b>[Match ${i + 1}/${totalSentences}]:</b> ${highlightedText}</div>`;
+        }
+        replyDiv.innerHTML += bufferHtml;
+
+        renderModeActionCard(replyDiv, true, userText);
+
+        history.scrollTop = history.scrollHeight;
+        isGenerating = false;
+        inputField.disabled = false;
+        sendBtn.disabled = false;
+        inputField.focus();
+        return;
+    }
+    // ==========================================
+
+    // ==========================================
+    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION
+    // ==========================================
+    const systemInstruction = buildSystemInstruction(false, null);
 
     // Update System Instruction in active history
     if (chatHistoryMessages.length === 0) {
@@ -367,7 +493,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
         chatHistoryMessages.push({ role: "user", content: userText });
     } else {
-        // If re-generating, remove previous assistant turn from memory array
         if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'assistant') {
             chatHistoryMessages.pop();
         }
@@ -379,10 +504,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     const userTempSetting = sliderTemp ? parseFloat(sliderTemp.value) : 0.5;
     const userMaxTokensSetting = sliderTokens ? parseInt(sliderTokens.value, 10) : 320;
 
-    const activeTemperature = hasKnowledgeMatch ? 0.0 : userTempSetting;
-    const activeMaxTokens = userMaxTokensSetting;
-
-    logTerm(`📝 Multi-turn payload assembled (${chatHistoryMessages.length} messages active in context | Mode: ${hasKnowledgeMatch ? 'Strict Knowledge' : 'Creative'}). Executing WebGPU stream (temp: ${activeTemperature}, max_tokens: ${activeMaxTokens})...`);
+    logTerm(`📝 Executing Creative Mode WebGPU stream (temp: ${userTempSetting}, max_tokens: ${userMaxTokensSetting})...`);
 
     const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
     if (!isRedo) {
@@ -395,8 +517,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
             messages: chatHistoryMessages,
-            temperature: activeTemperature,
-            max_tokens: activeMaxTokens,
+            temperature: userTempSetting,
+            max_tokens: userMaxTokensSetting,
             stream: true
         });
 
@@ -419,7 +541,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         logTerm(`✅ Streaming response completed successfully (${fullText.length} characters).`);
 
         // Render interactive Mode Action Badge UI below response
-        renderModeActionCard(replyDiv, hasKnowledgeMatch, userText);
+        renderModeActionCard(replyDiv, false, userText);
 
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
@@ -442,7 +564,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             if (totalSentences > 0) {
                 logTerm(`📦 Corpus matches successfully received as an array of ${totalSentences} individual sentence chunks.`);
 
-                // Step 1: Output header and pivot choice box
                 replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus.`;
 
                 const pivotWindow = document.createElement('div');
@@ -463,7 +584,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                 replyDiv.appendChild(pivotWindow);
                 history.scrollTop = history.scrollHeight;
 
-                // Helper to execute sequential dumping
                 const executeGeneralDump = async () => {
                     pivotWindow.remove();
                     replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus. I will respond in <b>${totalSentences}</b> sequential messages below to ensure zero data loss:`;
@@ -515,7 +635,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                         }
                     }
 
-                    // Scrub the oversized user query from history array to keep memory clean
                     if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'user') {
                         chatHistoryMessages.pop();
                     }
@@ -523,7 +642,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                     logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections (History left clean).`);
                 };
 
-                // Helper to switch to Creative mode instead
                 const executeCreativePivot = async () => {
                     pivotWindow.remove();
                     replyDiv.innerHTML = `<b>Rob:</b> Switched to Creative Response mode...`;
@@ -566,7 +684,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
                     }
                 };
 
-                // Attach event listeners safely
                 document.getElementById('btn-creative-pivot').onclick = executeCreativePivot;
                 document.getElementById('btn-continue-dump').onclick = executeGeneralDump;
 
