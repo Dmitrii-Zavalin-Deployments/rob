@@ -69,23 +69,40 @@ function initEngineTuners() {
                 valTokens.innerText = "320";
             }
 
-            // 4. Reset Match Threshold Slider
+            // 4. Reset Match Threshold Slider to 100%
             if (sliderMatch && valMatch) {
-                sliderMatch.value = "20";
-                valMatch.innerText = "20";
-                setMatchThreshold(0.20);
+                sliderMatch.value = "100";
+                valMatch.innerText = "100";
+                setMatchThreshold(1.00);
             }
 
-            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 20%, Extreme/Bypass Modes: OFF).");
+            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 100%, Extreme/Bypass Modes: OFF).");
         };
     }
 }
 
 // Execute initialization safely regardless of module loading state
 if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", initEngineTuners);
+    document.addEventListener("DOMContentLoaded", () => {
+        initEngineTuners();
+        // Initialize RAG match threshold to 100% on load if slider exists
+        const sliderMatch = document.getElementById("slider-match");
+        if (sliderMatch) {
+            sliderMatch.value = "100";
+            const valMatch = document.getElementById("val-match");
+            if (valMatch) valMatch.innerText = "100";
+            setMatchThreshold(1.00);
+        }
+    });
 } else {
     initEngineTuners();
+    const sliderMatch = document.getElementById("slider-match");
+    if (sliderMatch) {
+        sliderMatch.value = "100";
+        const valMatch = document.getElementById("val-match");
+        if (valMatch) valMatch.innerText = "100";
+        setMatchThreshold(1.00);
+    }
 }
 
 /**
