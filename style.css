@@ -123,6 +123,20 @@ h2 {
     line-height: 1.35;
 }
 
+/* Strict Verbatim Bypass States */
+.tuner-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    filter: grayscale(100%);
+    transition: all 0.3s ease;
+}
+
+.bypass-mode-card {
+    border: 2px dashed #a61c1c !important;
+    background: rgba(166, 28, 28, 0.02);
+    transition: all 0.3s ease;
+}
+
 /* Badges Base */
 .status-badge { 
     display: inline-flex; 
@@ -274,8 +288,8 @@ textarea#chat-input:disabled {
 #chat-history { 
     background: #fafbfc; 
     color: var(--text-main); 
-    height: 835px; /* Fixed height to keep it locked and proportional */
-    max-height: 835px; /* Hard ceiling so it never overflows or grows past the right column */
+    height: 950px; /* Fixed height to keep it locked and proportional */
+    max-height: 950px; /* Hard ceiling so it never overflows or grows past the right column */
     overflow-y: auto; /* Internal scrollbar activates properly for long threads or massive dumps */
     overflow-x: hidden;
     padding: 16px;
