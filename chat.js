@@ -350,44 +350,13 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // Apply manual mode override if user clicked a Redo button
     if (forceMode === 'creative') {
         hasKnowledgeMatch = false;
-    } else if (forceMode === 'strict') {
-        hasKnowledgeMatch = true;
     }
 
     // ==========================================
-    // 2. STRICT KNOWLEDGE MODE (ZERO-MATCH REFUSAL GUARDRAIL)
-    // ==========================================
-    if (forceMode !== 'creative' && !hasKnowledgeMatch) {
-        logTerm(`⚠️ [Strict Knowledge Guardrail] 0 corpus matches found for query: "${userText}" at current threshold.`);
-        
-        const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
-        if (!isRedo) {
-            replyDiv.className = "chat-msg chat-rob";
-            history.appendChild(replyDiv);
-        }
-
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
-        }
-
-        replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> No information regarding "<code>${escapeHtml(userText)}</code>" is available in the <code>general_training/</code> corpus. <br><br><small style="color: #888;">💡 <i>Tip: Please ease the RAG Match Threshold percentage slider or adjust your search query to find matching records.</i></small>`;
-
-        renderModeActionCard(replyDiv, true, userText);
-
-        history.scrollTop = history.scrollHeight;
-        isGenerating = false;
-        inputField.disabled = false;
-        sendBtn.disabled = false;
-        inputField.focus();
-        return;
-    }
-    // ==========================================
-
-    // ==========================================
-    // 2B. STRICT KNOWLEDGE MODE (DETERMINISTIC BUFFER PRINT + ON-THE-FLY LEARNING)
+    // 2. STRICT KNOWLEDGE MODE (DETERMINISTIC BUFFER PRINT)
     // ==========================================
     if (hasKnowledgeMatch && forceMode !== 'creative') {
-        logTerm(`🔴 [Strict Knowledge Mode] Matched ${matchedContext.length} sentences. Printing verbatim text and injecting into session history...`);
+        logTerm(`🔴 [Strict Knowledge Mode] Matched ${matchedContext.length} sentences. Printing verbatim text without LLM generation.`);
 
         const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
         if (!isRedo) {
@@ -402,25 +371,15 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
         const totalSentences = matchedSentences.length;
 
-        replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> Found <b>${totalSentences}</b> grounded sentences in <code>general_training/</code> corpus:<br><br>`;
-
-        let bufferHtml = "";
+        let bufferHtml = `<b>Rob [Strict Knowledge Mode]:</b> Found <b>${totalSentences}</b> grounded sentences in <code>general_training/</code> corpus:<br><br>`;
         for (let i = 0; i < totalSentences; i++) {
             const sentence = matchedSentences[i];
             bufferHtml += `<div style="margin-bottom: 8px; padding: 6px 10px; background: rgba(255, 69, 58, 0.04); border-left: 3px solid #ff453a; font-family: monospace; font-size: 13px;"><b>[Match ${i + 1}/${totalSentences}]:</b> ${escapeHtml(sentence)}</div>`;
         }
-        replyDiv.innerHTML += bufferHtml;
+        replyDiv.innerHTML = bufferHtml;
 
-        // LIGHT LEARNING ON THE FLY: Inject grounded sentences into chatHistoryMessages for multi-turn awareness
         const combinedGroundedText = matchedSentences.join("\n");
-        if (!isRedo) {
-            chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
-            chatHistoryMessages.push({ role: "user", content: userText });
-        }
-        chatHistoryMessages.push({ role: "assistant", content: `Grounded corpus records:\n${combinedGroundedText}` });
-        logTerm(`🧠 [On-the-Fly Learning] Injected ${totalSentences} grounded sentences into session memory.`);
-
-        renderModeActionCard(replyDiv, true, userText);
+        renderStrictMemoryActionCard(replyDiv, userText, combinedGroundedText);
 
         history.scrollTop = history.scrollHeight;
         isGenerating = false;
@@ -432,8 +391,10 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // ==========================================
 
     // ==========================================
-    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION
+    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION (AUTOMATIC FALLBACK)
     // ==========================================
+    logTerm(`🟢 [Creative Mode] 0 corpus matches or manual override. Executing unconstrained generation...`);
+
     const systemInstruction = buildSystemInstruction(false, null);
 
     // Update System Instruction in active history
@@ -494,8 +455,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
         logTerm(`✅ Streaming response completed successfully (${fullText.length} characters).`);
 
-        // Render interactive Mode Action Badge UI below response
-        renderModeActionCard(replyDiv, false, userText);
+        // Render interactive Creative Mode Action Card UI below response
+        renderCreativeActionCard(replyDiv, userText);
 
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
@@ -631,7 +592,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
                         chatHistoryMessages.push({ role: "assistant", content: creativeText });
                         logTerm(`✅ Creative pivot response completed successfully.`);
-                        renderModeActionCard(replyDiv, false, userText);
+                        renderCreativeActionCard(replyDiv, userText);
                     } catch (creativeErr) {
                         logTerm(`🔴 Creative Pivot Error: ${creativeErr.message}`);
                         replyDiv.innerText = "Rob Error: " + creativeErr.message;
@@ -691,38 +652,34 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 }
 
 /**
- * Renders the color-coded technical mode badge & action buttons below Rob's message
+ * Renders Action Card for Strict Knowledge Mode with manual memory curation button & verification disclaimer
  */
-function renderModeActionCard(targetReplyDiv, isStrict, userQuery) {
+function renderStrictMemoryActionCard(targetReplyDiv, userQuery, groundedText) {
     const actionCard = document.createElement("div");
     activeActionCard = actionCard;
     actionCard.className = "mode-action-card";
 
-    const badgeBg = isStrict ? "rgba(255, 69, 58, 0.12)" : "rgba(48, 209, 88, 0.12)";
-    const badgeBorder = isStrict ? "#ff453a" : "#30d158";
-    const badgeText = isStrict ? "🔴 Generated in Strict Knowledge Mode (RAG Grounded)" : "🟢 Generated in Creative / General Conversation Mode";
-
     actionCard.style.cssText = `
-        background: ${badgeBg};
-        border: 1px solid ${badgeBorder};
-        padding: 8px 12px;
+        background: rgba(255, 69, 58, 0.12);
+        border: 1px solid #ff453a;
+        padding: 10px 14px;
         border-radius: 6px;
         margin: 6px 0 12px 0;
         font-size: 0.85em;
     `;
 
     actionCard.innerHTML = `
-        <div style="margin-bottom: 6px; font-weight: bold; color: ${badgeBorder};">
-            ${badgeText}
+        <div style="margin-bottom: 6px; font-weight: bold; color: #ff453a;">
+            🔴 Generated in Strict Knowledge Mode (RAG Grounded)
+        </div>
+        <div style="color: #b00020; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4;">
+            🔒 This information is taken directly from the <code>general_training/</code> corpus without prior verification (please check the accuracy before using it).
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                🎨 Redo in Creative Mode
+            <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
+                🧠 Remember this information
             </button>
-            <button class="redo-strict-btn" style="background: #2c2c2e; color: #ff6b6b; border: 1px solid #ff453a; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                🔒 Redo in Strict Knowledge Mode
-            </button>
-            <button class="keep-btn" style="background: #0a84ff; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+            <button class="keep-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
                 ✅ Keep Response & Continue
             </button>
         </div>
@@ -730,15 +687,61 @@ function renderModeActionCard(targetReplyDiv, isStrict, userQuery) {
 
     targetReplyDiv.after(actionCard);
 
-    // Event Bindings
+    actionCard.querySelector('.remember-info-btn').onclick = () => {
+        chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userQuery, 0.6);
+        chatHistoryMessages.push({ role: "user", content: userQuery });
+        chatHistoryMessages.push({ role: "assistant", content: `Grounded corpus records:\n${groundedText}` });
+        logTerm(`🧠 [Manual Memory Curation] Grounded records explicitly committed to session memory.`);
+        actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
+        actionCard.querySelector('.remember-info-btn').disabled = true;
+        actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
+
+    actionCard.querySelector('.keep-btn').onclick = () => {
+        logTerm("✅ User confirmed response. Closing action card.");
+        finalizePreviousActionCard();
+    };
+}
+
+/**
+ * Renders Action Card for Creative Mode with brainstorming disclaimer & redo button
+ */
+function renderCreativeActionCard(targetReplyDiv, userQuery) {
+    const actionCard = document.createElement("div");
+    activeActionCard = actionCard;
+    actionCard.className = "mode-action-card";
+
+    actionCard.style.cssText = `
+        background: rgba(48, 209, 88, 0.12);
+        border: 1px solid #30d158;
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin: 6px 0 12px 0;
+        font-size: 0.85em;
+    `;
+
+    actionCard.innerHTML = `
+        <div style="margin-bottom: 6px; font-weight: bold; color: #137333;">
+            🟢 Generated in Creative / General Conversation Mode
+        </div>
+        <div style="color: #2e7d32; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4;">
+            ⚠️ This information may be incorrect as it's generated under creativity temperature and should be used for brainstorming only, not as a fact (until correctness is checked).
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                🎨 Redo in Creative Mode
+            </button>
+            <button class="keep-btn" style="background: #0a84ff; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                ✅ Keep Response & Continue
+            </button>
+        </div>
+    `;
+
+    targetReplyDiv.after(actionCard);
+
     actionCard.querySelector('.redo-creative-btn').onclick = () => {
         logTerm("🎨 User selected: Redo in Creative Mode");
         sendChatMessage('creative', targetReplyDiv, userQuery);
-    };
-
-    actionCard.querySelector('.redo-strict-btn').onclick = () => {
-        logTerm("🔒 User selected: Redo in Strict Knowledge Mode");
-        sendChatMessage('strict', targetReplyDiv, userQuery);
     };
 
     actionCard.querySelector('.keep-btn').onclick = () => {
