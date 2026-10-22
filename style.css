@@ -288,9 +288,9 @@ textarea#chat-input:disabled {
 #chat-history { 
     background: #fafbfc; 
     color: var(--text-main); 
-    height: 950px; /* Fixed height to keep it locked and proportional */
-    max-height: 950px; /* Hard ceiling so it never overflows or grows past the right column */
-    overflow-y: auto; /* Internal scrollbar activates properly for long threads or massive dumps */
+    height: 950px; 
+    max-height: 950px; 
+    overflow-y: auto; 
     overflow-x: hidden;
     padding: 16px;
     display: flex; 
