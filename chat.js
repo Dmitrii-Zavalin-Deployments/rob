@@ -10,8 +10,8 @@ let isGenerating = false;
 let activeActionCard = null; // Tracks current mode action card in UI
 
 /**
-- Initializes UI Slider Controls and Reset button listeners.
-- Ensures the value labels update live and reset behavior functions properly.
+ * Initializes UI Slider Controls and Reset button listeners.
+ * Ensures the value labels update live and reset behavior functions properly.
  */
 function initEngineTuners() {
     const sliderTemp = document.getElementById("slider-temp");
@@ -89,7 +89,7 @@ if (document.readyState === 'loading') {
 }
 
 /**
-- Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
+ * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
  */
 function getSimilarityScore(str1, str2) {
     const s1 = str1.toLowerCase().trim();
@@ -109,8 +109,8 @@ function getSimilarityScore(str1, str2) {
 }
 
 /**
-- Scans chatHistoryMessages for previous user turns similar to incomingUserText.
-- If a match (>= similarityThreshold) is found, prunes that user turn and its assistant reply.
+ * Scans chatHistoryMessages for previous user turns similar to incomingUserText.
+ * If a match (>= similarityThreshold) is found, prunes that user turn and its assistant reply.
  */
 function deduplicateChatHistory(history, incomingUserText, similarityThreshold = 0.6) {
     if (history.length <= 1) return history; // System prompt only
@@ -142,8 +142,8 @@ function deduplicateChatHistory(history, incomingUserText, similarityThreshold =
 }
 
 /**
-- Silent Warm-up Function
-- Accepts the engine instance directly to pre-compile WebGPU execution pipelines.
+ * Silent Warm-up Function
+ * Accepts the engine instance directly to pre-compile WebGPU execution pipelines.
  */
 export async function warmupEngineContext(engineInstance) {
     if (!engineInstance) {
@@ -199,7 +199,7 @@ export function handleChatKeydown(event) {
 }
 
 /**
-- Formats System Instructions based on desired generation mode.
+ * Formats System Instructions based on desired generation mode.
  */
 function buildSystemInstruction(hasKnowledgeMatch, matchedContext) {
     const baseIdentity = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Your name is Rob. Never claim to be Dmitrii Zavalin or confuse your identity with the user. Do not repeat greeting introductions or boilerplate self-identifications in multi-turn conversations; answer the user's question directly.`;
@@ -223,7 +223,7 @@ Be helpful, polite, precise, and conversational. Respond naturally as an AI assi
 }
 
 /**
-- Clears active Action Controls card when continuing discussion.
+ * Clears active Action Controls card when continuing discussion.
  */
 function finalizePreviousActionCard() {
     if (activeActionCard && activeActionCard.parentNode) {
@@ -299,7 +299,9 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     }
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
+    const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
+        // Optional live streaming callback during corpus scan
+    });
     let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
     // ==========================================
@@ -618,7 +620,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 }
 
 /**
-- Renders the color-coded technical mode badge & action buttons below Rob's message
+ * Renders the color-coded technical mode badge & action buttons below Rob's message
  */
 function renderModeActionCard(targetReplyDiv, isStrict, userQuery) {
     const actionCard = document.createElement("div");
