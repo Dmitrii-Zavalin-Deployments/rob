@@ -244,7 +244,6 @@ function highlightVerbatimSentence(sentence, keywordsToHighlight) {
     keywordsToHighlight.forEach(kw => {
         if (typeof kw === 'string' && kw.trim().length > 1) {
             const trimmedKw = kw.trim();
-            // Escape special regex characters in the keyword
             const regexEscaped = trimmedKw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
             const regex = new RegExp(`(${regexEscaped})`, 'gi');
             safeHtml = safeHtml.replace(regex, `<mark style="background: rgba(255, 215, 0, 0.35); color: #fff; padding: 1px 4px; border-radius: 3px; font-weight: bold;">$1</mark>`);
@@ -321,9 +320,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     }
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
-        // Optional live streaming callback during corpus scan
-    });
+    const matchedContext = rankAndExtractRelevantSentences(ragSearchQuery);
     let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
 
     // ==========================================
@@ -426,13 +423,13 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
         replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> Found <b>${totalSentences}</b> grounded sentences in <code>general_training/</code> corpus:<br><br>`;
 
-        // Request key terms/entities to highlight from local LLM
+        // Request key terms/entities to highlight from local LLM with hardened JSON stripping
         let highlightedKeywords = [];
         try {
             const promptForHighlighter = [
                 {
                     role: "system",
-                    content: `You are an AI Keyword Extractor. Given a user query and a context sentence, return ONLY a JSON array of specific key terms, names, technologies, or numbers from the sentence that match the user query concepts. Example output: ["Dmitrii Zavalin", "Atlantis"]. Do not output markdown or extra commentary.`
+                    content: `You are an AI Keyword Extractor. Given a user query and a context sentence, return ONLY a valid JSON array of specific key terms, names, technologies, or numbers from the sentence that match the user query concepts. Example output: ["Dmitrii Zavalin", "Atlantis"]. Do not output markdown code blocks, conversational filler, or extra commentary.`
                 },
                 {
                     role: "user",
@@ -448,7 +445,11 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             });
 
             const hlReply = hlGenerator.choices[0]?.message?.content || "";
-            const jsonMatch = hlReply.match(/\[.*?\]/s);
+            
+            // CLEANUP GUARD: Strip markdown code fences if model included them
+            const cleanedReply = hlReply.replace(/```json/gi, '').replace(/```/g, '').trim();
+            
+            const jsonMatch = cleanedReply.match(/\[.*?\]/s);
             if (jsonMatch) {
                 highlightedKeywords = JSON.parse(jsonMatch[0]);
                 logTerm(`🎯 [LLM Smart Highlighter] Identified key terms to highlight: ${JSON.stringify(highlightedKeywords)}`);
