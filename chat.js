@@ -232,27 +232,6 @@ function finalizePreviousActionCard() {
     }
 }
 
-/**
- * Safely wraps LLM-extracted keywords in highlight tags within a verbatim sentence string.
- */
-function highlightVerbatimSentence(sentence, keywordsToHighlight) {
-    let safeHtml = escapeHtml(sentence);
-    if (!keywordsToHighlight || !Array.isArray(keywordsToHighlight) || keywordsToHighlight.length === 0) {
-        return safeHtml;
-    }
-
-    keywordsToHighlight.forEach(kw => {
-        if (typeof kw === 'string' && kw.trim().length > 1) {
-            const trimmedKw = kw.trim();
-            const regexEscaped = trimmedKw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-            const regex = new RegExp(`(${regexEscaped})`, 'gi');
-            safeHtml = safeHtml.replace(regex, `<mark style="background: rgba(255, 215, 0, 0.35); color: #fff; padding: 1px 4px; border-radius: 3px; font-weight: bold;">$1</mark>`);
-        }
-    });
-
-    return safeHtml;
-}
-
 export async function sendChatMessage(forceMode = null, targetReplyDiv = null, lastUserQuery = null) {
     if (isGenerating) return;
 
@@ -329,7 +308,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // 1. STRICT VERBATIM RAG BYPASS MODE EXECUTION
     // ==========================================
     if (isVerbatimBypassActive) {
-        logTerm(`🔒 [Verbatim Bypass Mode] Direct buffer stream active. Bypassing LLM model generation entirely.`);
+        logTerm(`🔒 [Verbatim Bypass Mode] Direct buffer stream active. Bypassing history injection.`);
         
         const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
         if (!isRedo) {
@@ -405,10 +384,10 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // ==========================================
 
     // ==========================================
-    // 2B. STRICT KNOWLEDGE MODE (DETERMINISTIC PRINT + LLM HIGHLIGHTER)
+    // 2B. STRICT KNOWLEDGE MODE (DETERMINISTIC BUFFER PRINT + ON-THE-FLY LEARNING)
     // ==========================================
     if (hasKnowledgeMatch && forceMode !== 'creative') {
-        logTerm(`🔴 [Strict Knowledge Mode] Matched ${matchedContext.length} sentences. Printing verbatim text from buffer and requesting LLM keyword highlights...`);
+        logTerm(`🔴 [Strict Knowledge Mode] Matched ${matchedContext.length} sentences. Printing verbatim text and injecting into session history...`);
 
         const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
         if (!isRedo) {
@@ -425,49 +404,21 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
         replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> Found <b>${totalSentences}</b> grounded sentences in <code>general_training/</code> corpus:<br><br>`;
 
-        // Request key terms/entities to highlight from local LLM with hardened JSON stripping
-        let highlightedKeywords = [];
-        try {
-            const promptForHighlighter = [
-                {
-                    role: "system",
-                    content: `You are an AI Keyword Extractor. Given a user query and a context sentence, return ONLY a valid JSON array of specific key terms, names, technologies, or numbers from the sentence that match the user query concepts. Example output: ["Dmitrii Zavalin", "Atlantis"]. Do not output markdown code blocks, conversational filler, or extra commentary.`
-                },
-                {
-                    role: "user",
-                    content: `Query: "${userText}"\nSentence: "${matchedSentences[0]}"`
-                }
-            ];
-
-            const hlGenerator = await engine.chat.completions.create({
-                messages: promptForHighlighter,
-                temperature: 0.0,
-                max_tokens: 64,
-                stream: false
-            });
-
-            const hlReply = hlGenerator.choices[0]?.message?.content || "";
-            
-            // CLEANUP GUARD: Strip markdown code fences if model included them
-            const cleanedReply = hlReply.replace(/```json/gi, '').replace(/```/g, '').trim();
-            
-            const jsonMatch = cleanedReply.match(/\[.*?\]/s);
-            if (jsonMatch) {
-                highlightedKeywords = JSON.parse(jsonMatch[0]);
-                logTerm(`🎯 [LLM Smart Highlighter] Identified key terms to highlight: ${JSON.stringify(highlightedKeywords)}`);
-            }
-        } catch (hlErr) {
-            logTerm(`⚠️ [LLM Smart Highlighter Note] Non-critical error extracting highlight tags: ${hlErr.message}`);
-        }
-
-        // Render verbatim sentences with safe frontend highlight markup
         let bufferHtml = "";
         for (let i = 0; i < totalSentences; i++) {
             const sentence = matchedSentences[i];
-            const highlightedText = highlightVerbatimSentence(sentence, highlightedKeywords);
-            bufferHtml += `<div style="margin-bottom: 8px; padding: 6px 10px; background: rgba(255, 69, 58, 0.04); border-left: 3px solid #ff453a; font-family: monospace; font-size: 13px;"><b>[Match ${i + 1}/${totalSentences}]:</b> ${highlightedText}</div>`;
+            bufferHtml += `<div style="margin-bottom: 8px; padding: 6px 10px; background: rgba(255, 69, 58, 0.04); border-left: 3px solid #ff453a; font-family: monospace; font-size: 13px;"><b>[Match ${i + 1}/${totalSentences}]:</b> ${escapeHtml(sentence)}</div>`;
         }
         replyDiv.innerHTML += bufferHtml;
+
+        // LIGHT LEARNING ON THE FLY: Inject grounded sentences into chatHistoryMessages for multi-turn awareness
+        const combinedGroundedText = matchedSentences.join("\n");
+        if (!isRedo) {
+            chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
+            chatHistoryMessages.push({ role: "user", content: userText });
+        }
+        chatHistoryMessages.push({ role: "assistant", content: `Grounded corpus records:\n${combinedGroundedText}` });
+        logTerm(`🧠 [On-the-Fly Learning] Injected ${totalSentences} grounded sentences into session memory.`);
 
         renderModeActionCard(replyDiv, true, userText);
 
