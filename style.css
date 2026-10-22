@@ -132,8 +132,8 @@ h2 {
 }
 
 .bypass-mode-card {
-    border: 2px dashed #00d2ff !important;
-    background: rgba(0, 210, 255, 0.02);
+    border: 2px dashed #a61c1c !important;
+    background: rgba(166, 28, 28, 0.02);
     transition: all 0.3s ease;
 }
 

@@ -7,17 +7,6 @@
     <link rel="stylesheet" href="style.css">
     <!-- Marked.js for dynamic Markdown and code block rendering in chat -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        .tuner-disabled {
-            opacity: 0.35;
-            pointer-events: none;
-            filter: grayscale(100%);
-        }
-        .bypass-mode-card {
-            border: 2px dashed #00d2ff;
-            background: rgba(0, 210, 255, 0.03);
-        }
-    </style>
 </head>
 <body>
     <div class="wrapper">
@@ -73,8 +62,8 @@
                         <button id="reset-defaults-btn" class="btn btn-secondary" style="font-size: 0.75em; padding: 3px 8px;" onclick="resetEngineTuners()">Reset Defaults</button>
                     </div>
 
-                    <!-- Tuner Group Wrapper to apply disabled state -->
-                    <div id="standard-tuners-wrapper">
+                    <!-- LLM Tuners Wrapper (Greyed out when Verbatim Bypass is active) -->
+                    <div id="llm-tuners-wrapper">
                         <!-- Tuner 1: Creativity Temperature -->
                         <div class="tuner-group">
                             <div class="tuner-label-row">
@@ -112,25 +101,25 @@
                                 Limits the maximum length of Rob's generated responses (Standard range: 1 to 2048 tokens).
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Tuner 3: RAG Match Threshold -->
-                        <div class="tuner-group">
-                            <div class="tuner-label-row">
-                                <span>🎯 RAG Match Threshold: <strong id="val-match">20</strong>%</span>
-                            </div>
-                            <input type="range" id="slider-match" min="0" max="100" step="5" value="20" class="tuner-slider" oninput="document.getElementById('val-match').innerText = this.value">
-                            <div class="tuner-desc">
-                                Minimum keyword overlap required to match corpus sentences (0% = match everything; 100% = exact 100% keyword match).
-                            </div>
+                    <!-- Tuner 3: RAG Match Threshold (Stays Active during Bypass Mode) -->
+                    <div class="tuner-group">
+                        <div class="tuner-label-row">
+                            <span>🎯 RAG Match Threshold: <strong id="val-match">20</strong>%</span>
+                        </div>
+                        <input type="range" id="slider-match" min="0" max="100" step="5" value="20" class="tuner-slider" oninput="document.getElementById('val-match').innerText = this.value">
+                        <div class="tuner-desc">
+                            Minimum keyword overlap required to match corpus sentences (0% = match everything; 100% = exact 100% keyword match).
                         </div>
                     </div>
 
                     <!-- Tuner 4: Strict Verbatim RAG Bypass (Direct Buffer Print) -->
                     <div class="tuner-group" style="margin-bottom: 0; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
-                        <div style="font-size: 0.9em; color: #00d2ff;">
+                        <div style="font-size: 0.9em;">
                             <label style="cursor: pointer; display: flex; align-items: flex-start; gap: 8px;">
                                 <input type="checkbox" id="toggle-verbatim-bypass" onchange="toggleVerbatimBypass(this)" style="margin-top: 3px;">
-                                <span>🔒 <strong>Strict Verbatim RAG Bypass:</strong> Stream exact matching corpus sentences directly from buffer without model generation or memory limits.</span>
+                                <span style="color: #a61c1c; font-weight: bold;">🔒 Strict Verbatim RAG Bypass: Return from general_training/ corpus all the sentences where the texts match the query sent to Rob with RAG Match Threshold.</span>
                             </label>
                         </div>
                     </div>
@@ -192,7 +181,7 @@
     }
 
     function toggleVerbatimBypass(checkbox) {
-        const wrapper = document.getElementById('standard-tuners-wrapper');
+        const wrapper = document.getElementById('llm-tuners-wrapper');
         const tunersCard = document.getElementById('tuners-card');
         
         if (checkbox.checked) {
