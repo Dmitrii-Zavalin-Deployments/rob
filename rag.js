@@ -3,7 +3,7 @@ import { logTerm, getBasePath } from './logger.js';
 console.log("[Module Loaded] rag.js | Functions: loadGeneralTrainingCorpus, getCorpus, rankAndExtractRelevantSentences, setMatchThreshold, getMatchThreshold");
 
 let generalKnowledgeCorpus = [];
-let currentMatchThreshold = 0.20; // Default 20%
+let currentMatchThreshold = 1.00; // Default 100%
 
 export function setMatchThreshold(thresholdVal) {
     currentMatchThreshold = thresholdVal;
