@@ -106,9 +106,9 @@
                     <!-- Tuner 3: RAG Match Threshold (Stays Active during Bypass Mode) -->
                     <div class="tuner-group">
                         <div class="tuner-label-row">
-                            <span>🎯 RAG Match Threshold: <strong id="val-match">20</strong>%</span>
+                            <span>🎯 RAG Match Threshold: <strong id="val-match">100</strong>%</span>
                         </div>
-                        <input type="range" id="slider-match" min="0" max="100" step="5" value="20" class="tuner-slider" oninput="document.getElementById('val-match').innerText = this.value">
+                        <input type="range" id="slider-match" min="0" max="100" step="5" value="100" class="tuner-slider" oninput="document.getElementById('val-match').innerText = this.value">
                         <div class="tuner-desc">
                             Minimum keyword overlap required to match corpus sentences (0% = match everything; 100% = exact 100% keyword match).
                         </div>
@@ -212,8 +212,8 @@
         document.getElementById('slider-tokens').value = "320";
         document.getElementById('val-tokens').innerText = "320";
 
-        document.getElementById('slider-match').value = "20";
-        document.getElementById('val-match').innerText = "20";
+        document.getElementById('slider-match').value = "100";
+        document.getElementById('val-match').innerText = "100";
     }
     </script>
 
