@@ -69,27 +69,45 @@ function initEngineTuners() {
                 valTokens.innerText = "320";
             }
 
-            // 4. Reset Match Threshold Slider
+            // 4. Reset Match Threshold Slider to 100%
             if (sliderMatch && valMatch) {
-                sliderMatch.value = "20";
-                valMatch.innerText = "20";
-                setMatchThreshold(0.20);
+                sliderMatch.value = "100";
+                valMatch.innerText = "100";
+                setMatchThreshold(1.00);
             }
 
-            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 20%, Extreme/Bypass Modes: OFF).");
+            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 100%, Extreme/Bypass Modes: OFF).");
         };
     }
 }
 
 // Execute initialization safely regardless of module loading state
 if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", initEngineTuners);
+    document.addEventListener("DOMContentLoaded", () => {
+        initEngineTuners();
+        // Initialize RAG match threshold to 100% on load if slider exists
+        const sliderMatch = document.getElementById("slider-match");
+        if (sliderMatch) {
+            sliderMatch.value = "100";
+            const valMatch = document.getElementById("val-match");
+            if (valMatch) valMatch.innerText = "100";
+            setMatchThreshold(1.00);
+        }
+    });
 } else {
     initEngineTuners();
+    const sliderMatch = document.getElementById("slider-match");
+    if (sliderMatch) {
+        sliderMatch.value = "100";
+        const valMatch = document.getElementById("val-match");
+        if (valMatch) valMatch.innerText = "100";
+        setMatchThreshold(1.00);
+    }
 }
 
 /**
- * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
+ * Calculates query containment ratio: what fraction of words in str1 (query) exist inside str2 (target).
+ * Returns a normalized value between 0.0 and 1.0.
  */
 function getSimilarityScore(str1, str2) {
     const s1 = str1.toLowerCase().trim();
@@ -99,13 +117,14 @@ function getSimilarityScore(str1, str2) {
     const words1 = new Set(s1.split(/\s+/));
     const words2 = new Set(s2.split(/\s+/));
     
+    if (words1.size === 0) return 0;
+
     let intersection = 0;
     for (let word of words1) {
         if (words2.has(word)) intersection++;
     }
     
-    const union = new Set([...words1, ...words2]).size;
-    return union === 0 ? 0 : (intersection / union);
+    return intersection / words1.size;
 }
 
 /**
@@ -199,27 +218,10 @@ export function handleChatKeydown(event) {
 }
 
 /**
- * Formats System Instructions based on desired generation mode.
+ * Formats System Instructions for Creative Mode.
  */
-function buildSystemInstruction(hasKnowledgeMatch, matchedContext) {
-    const baseIdentity = `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Your name is Rob. Never claim to be Dmitrii Zavalin or confuse your identity with the user. Do not repeat greeting introductions or boilerplate self-identifications in multi-turn conversations; answer the user's question directly.`;
-
-    if (hasKnowledgeMatch) {
-        const formattedContext = Array.isArray(matchedContext) ? matchedContext.join("\n") : matchedContext;
-        return `${baseIdentity}
-
-STRICT KNOWLEDGE BASE INSTRUCTIONS:
-1. Relevant information was found in the general_training/ corpus for this user query.
-2. You MUST answer STRICTLY AND ONLY using the facts provided in the REFERENCE CONTEXT below.
-3. For any sub-topic, question, or aspect asked by the user that IS NOT explicitly documented in the reference context below (e.g. specific experiments, expeditions, dates, or additional features), state clearly: "No information regarding [specific topic] is available in the general_training/ corpus."
-4. DO NOT use outside knowledge, extrapolate, or fabricate imaginary details.
-
---- EXTRACTED REFERENCE CONTEXT ---
-${formattedContext}`;
-    } else {
-        return `${baseIdentity}
-Be helpful, polite, precise, and conversational. Respond naturally as an AI assistant.`;
-    }
+function buildSystemInstruction() {
+    return `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Your name is Rob. Never claim to be Dmitrii Zavalin or confuse your identity with the user. Do not repeat greeting introductions or boilerplate self-identifications in multi-turn conversations; answer the user's question directly. Be helpful, polite, precise, and conversational.`;
 }
 
 /**
@@ -233,25 +235,31 @@ function finalizePreviousActionCard() {
 }
 
 /**
- * Safely wraps LLM-extracted keywords in highlight tags within a verbatim sentence string.
+ * Helper to generate a deterministic text summary from chatHistoryMessages without LLM inference.
  */
-function highlightVerbatimSentence(sentence, keywordsToHighlight) {
-    let safeHtml = escapeHtml(sentence);
-    if (!keywordsToHighlight || !Array.isArray(keywordsToHighlight) || keywordsToHighlight.length === 0) {
-        return safeHtml;
+function renderChatSummaryView(targetContainer) {
+    const assistantTurns = chatHistoryMessages.filter(m => m.role === 'assistant');
+    
+    if (assistantTurns.length === 0) {
+        alert("No assistant history recorded in memory yet!");
+        return;
     }
 
-    keywordsToHighlight.forEach(kw => {
-        if (typeof kw === 'string' && kw.trim().length > 1) {
-            const trimmedKw = kw.trim();
-            // Escape special regex characters in the keyword
-            const regexEscaped = trimmedKw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-            const regex = new RegExp(`(${regexEscaped})`, 'gi');
-            safeHtml = safeHtml.replace(regex, `<mark style="background: rgba(255, 215, 0, 0.35); color: #fff; padding: 1px 4px; border-radius: 3px; font-weight: bold;">$1</mark>`);
-        }
+    let summaryHtml = `<div class="chat-summary-box" style="margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">`;
+    summaryHtml += `<b>📜 Cumulative Chat History Summary (${assistantTurns.length} recorded responses):</b><br><br>`;
+    
+    assistantTurns.forEach((turn, idx) => {
+        summaryHtml += `<div style="margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;"><b>[Turn ${idx + 1}]:</b> ${escapeHtml(turn.content)}</div>`;
     });
+    summaryHtml += `</div>`;
 
-    return safeHtml;
+    const existingSummary = targetContainer.querySelector('.chat-summary-box');
+    if (existingSummary) {
+        existingSummary.remove();
+    }
+
+    targetContainer.insertAdjacentHTML('beforeend', summaryHtml);
+    logTerm(`📜 [Chat Summary] Generated deterministic summary from ${assistantTurns.length} recorded assistant messages.`);
 }
 
 export async function sendChatMessage(forceMode = null, targetReplyDiv = null, lastUserQuery = null) {
@@ -297,49 +305,17 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         logTerm(`🔄 [chat.js -> Regeneration] User requested re-generation in mode: ${forceMode}`);
     }
 
-    // Display temporary system search status in chat window & log to terminal
-    const searchStatusText = "Looking for the answer in the text files from general_training/ (see 📡 System Terminal for details)";
-    logTerm(`📡 ${searchStatusText}`);
-    
-    const statusDiv = document.createElement("div");
-    statusDiv.className = "chat-msg chat-system";
-    statusDiv.style.cssText = "color: #7f8c8d; font-style: italic; margin: 4px 0;";
-    statusDiv.innerHTML = `📡 ${searchStatusText}`;
-    history.appendChild(statusDiv);
-    history.scrollTop = history.scrollHeight;
-
-    // Resolve implicit pronouns ("it", "this", "that") using recent history for RAG lookup
-    let ragSearchQuery = userText;
-    const implicitPronouns = /\b(it|its|they|them|their|this|that|project|topic|discussing)\b/i;
-
-    if (implicitPronouns.test(userText) && chatHistoryMessages.length > 2) {
-        const lastUserMsg = [...chatHistoryMessages].reverse().find(m => m.role === 'user');
-        if (lastUserMsg) {
-            ragSearchQuery = `${lastUserMsg.content} ${userText}`;
-            logTerm(`🔄 [chat.js -> Query Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
-        }
-    }
-
-    // Run Sentence-by-Sentence Combinatorics RAG Extraction
-    const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
-        // Optional live streaming callback during corpus scan
-    });
-    let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
-
     // ==========================================
     // 1. STRICT VERBATIM RAG BYPASS MODE EXECUTION
     // ==========================================
     if (isVerbatimBypassActive) {
-        logTerm(`🔒 [Verbatim Bypass Mode] Direct buffer stream active. Bypassing LLM model generation entirely.`);
+        logTerm(`🔒 [Verbatim Bypass Mode] Direct buffer stream active. Bypassing history injection.`);
         
+        const matchedContext = await rankAndExtractRelevantSentences(userText, () => {});
         const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
         if (!isRedo) {
             replyDiv.className = "chat-msg chat-rob";
             history.appendChild(replyDiv);
-        }
-
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
         }
 
         const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
@@ -369,104 +345,59 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     }
     // ==========================================
 
+    // Display temporary system search status in chat window & log to terminal
+    const searchStatusText = "Looking for the answer in the text files from general_training/ (see 📡 System Terminal for details)";
+    logTerm(`📡 ${searchStatusText}`);
+    
+    const statusDiv = document.createElement("div");
+    statusDiv.className = "chat-msg chat-system";
+    statusDiv.style.cssText = "color: #7f8c8d; font-style: italic; margin: 4px 0;";
+    statusDiv.innerHTML = `📡 ${searchStatusText}`;
+    history.appendChild(statusDiv);
+    history.scrollTop = history.scrollHeight;
+
+    // Strict 1 Query = 1 Response Isolation (no history prepending during search)
+    const ragSearchQuery = userText;
+
+    // Run Sentence-by-Sentence Combinatorics RAG Extraction
+    const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
+        // Optional live streaming callback during corpus scan
+    });
+    let hasKnowledgeMatch = matchedContext && Array.isArray(matchedContext) && matchedContext.length > 0;
+
+    if (statusDiv && statusDiv.parentNode) {
+        statusDiv.parentNode.removeChild(statusDiv);
+    }
+
     // Apply manual mode override if user clicked a Redo button
     if (forceMode === 'creative') {
         hasKnowledgeMatch = false;
-    } else if (forceMode === 'strict') {
-        hasKnowledgeMatch = true;
     }
 
     // ==========================================
-    // 2. STRICT KNOWLEDGE MODE (ZERO-MATCH REFUSAL GUARDRAIL)
-    // ==========================================
-    if (forceMode !== 'creative' && !hasKnowledgeMatch) {
-        logTerm(`⚠️ [Strict Knowledge Guardrail] 0 corpus matches found for query: "${userText}" at current threshold.`);
-        
-        const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
-        if (!isRedo) {
-            replyDiv.className = "chat-msg chat-rob";
-            history.appendChild(replyDiv);
-        }
-
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
-        }
-
-        replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> No information regarding "<code>${escapeHtml(userText)}</code>" is available in the <code>general_training/</code> corpus. <br><br><small style="color: #888;">💡 <i>Tip: Please ease the RAG Match Threshold percentage slider or adjust your search query to find matching records.</i></small>`;
-
-        renderModeActionCard(replyDiv, true, userText);
-
-        history.scrollTop = history.scrollHeight;
-        isGenerating = false;
-        inputField.disabled = false;
-        sendBtn.disabled = false;
-        inputField.focus();
-        return;
-    }
-    // ==========================================
-
-    // ==========================================
-    // 2B. STRICT KNOWLEDGE MODE (DETERMINISTIC PRINT + LLM HIGHLIGHTER)
+    // 2. STRICT KNOWLEDGE MODE (DETERMINISTIC BUFFER PRINT)
     // ==========================================
     if (hasKnowledgeMatch && forceMode !== 'creative') {
-        logTerm(`🔴 [Strict Knowledge Mode] Matched ${matchedContext.length} sentences. Printing verbatim text from buffer and requesting LLM keyword highlights...`);
+        logTerm(`🔴 [Strict Knowledge Mode] Matched ${matchedContext.length} sentences. Printing verbatim text without LLM generation.`);
 
         const replyDiv = isRedo ? targetReplyDiv : document.createElement("div");
         if (!isRedo) {
             replyDiv.className = "chat-msg chat-rob";
             history.appendChild(replyDiv);
-        }
-
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
         }
 
         const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
         const totalSentences = matchedSentences.length;
 
-        replyDiv.innerHTML = `<b>Rob [Strict Knowledge Mode]:</b> Found <b>${totalSentences}</b> grounded sentences in <code>general_training/</code> corpus:<br><br>`;
-
-        // Request key terms/entities to highlight from local LLM
-        let highlightedKeywords = [];
-        try {
-            const promptForHighlighter = [
-                {
-                    role: "system",
-                    content: `You are an AI Keyword Extractor. Given a user query and a context sentence, return ONLY a JSON array of specific key terms, names, technologies, or numbers from the sentence that match the user query concepts. Example output: ["Dmitrii Zavalin", "Atlantis"]. Do not output markdown or extra commentary.`
-                },
-                {
-                    role: "user",
-                    content: `Query: "${userText}"\nSentence: "${matchedSentences[0]}"`
-                }
-            ];
-
-            const hlGenerator = await engine.chat.completions.create({
-                messages: promptForHighlighter,
-                temperature: 0.0,
-                max_tokens: 64,
-                stream: false
-            });
-
-            const hlReply = hlGenerator.choices[0]?.message?.content || "";
-            const jsonMatch = hlReply.match(/\[.*?\]/s);
-            if (jsonMatch) {
-                highlightedKeywords = JSON.parse(jsonMatch[0]);
-                logTerm(`🎯 [LLM Smart Highlighter] Identified key terms to highlight: ${JSON.stringify(highlightedKeywords)}`);
-            }
-        } catch (hlErr) {
-            logTerm(`⚠️ [LLM Smart Highlighter Note] Non-critical error extracting highlight tags: ${hlErr.message}`);
-        }
-
-        // Render verbatim sentences with safe frontend highlight markup
-        let bufferHtml = "";
+        let bufferHtml = `<b>Rob [Strict Knowledge Mode]:</b> Found <b>${totalSentences}</b> grounded sentences in <code>general_training/</code> corpus:<br><br>`;
         for (let i = 0; i < totalSentences; i++) {
             const sentence = matchedSentences[i];
-            const highlightedText = highlightVerbatimSentence(sentence, highlightedKeywords);
-            bufferHtml += `<div style="margin-bottom: 8px; padding: 6px 10px; background: rgba(255, 69, 58, 0.04); border-left: 3px solid #ff453a; font-family: monospace; font-size: 13px;"><b>[Match ${i + 1}/${totalSentences}]:</b> ${highlightedText}</div>`;
+            bufferHtml += `<div style="margin-bottom: 8px; padding: 6px 10px; background: rgba(255, 69, 58, 0.04); border-left: 3px solid #ff453a; font-family: monospace; font-size: 13px;"><b>[Match ${i + 1}/${totalSentences}]:</b> ${escapeHtml(sentence)}</div>`;
         }
-        replyDiv.innerHTML += bufferHtml;
+        replyDiv.innerHTML = bufferHtml;
 
-        renderModeActionCard(replyDiv, true, userText);
+        const combinedGroundedText = matchedSentences.join("\n");
+        renderStrictMemoryActionCard(replyDiv, userText, combinedGroundedText);
 
         history.scrollTop = history.scrollHeight;
         isGenerating = false;
@@ -478,25 +409,17 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // ==========================================
 
     // ==========================================
-    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION
+    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION (STATESLESS SINGLE-TURN)
     // ==========================================
-    const systemInstruction = buildSystemInstruction(false, null);
+    logTerm(`🟢 [Creative Mode] 0 corpus matches or manual override. Executing stateless single-turn generation...`);
 
-    // Update System Instruction in active history
-    if (chatHistoryMessages.length === 0) {
-        chatHistoryMessages.push({ role: "system", content: systemInstruction });
-    } else {
-        chatHistoryMessages[0] = { role: "system", content: systemInstruction };
-    }
+    const systemInstruction = buildSystemInstruction();
 
-    if (!isRedo) {
-        chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userText, 0.6);
-        chatHistoryMessages.push({ role: "user", content: userText });
-    } else {
-        if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'assistant') {
-            chatHistoryMessages.pop();
-        }
-    }
+    // Strict Stateless Single-Turn Payload (System Instruction + Current User Query Only)
+    const statelessMessages = [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userText }
+    ];
 
     // Read live values from Control Panel sliders
     const sliderTemp = document.getElementById("slider-temp");
@@ -516,7 +439,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
-            messages: chatHistoryMessages,
+            messages: statelessMessages,
             temperature: userTempSetting,
             max_tokens: userMaxTokensSetting,
             stream: true
@@ -535,13 +458,10 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             history.scrollTop = history.scrollHeight;
         }
 
-        // Store Rob's answer in dialogue history for subsequent turns
-        chatHistoryMessages.push({ role: "assistant", content: fullText });
-
         logTerm(`✅ Streaming response completed successfully (${fullText.length} characters).`);
 
-        // Render interactive Mode Action Badge UI below response
-        renderModeActionCard(replyDiv, false, userText);
+        // Render interactive Creative Action Card UI with manual "Remember" button
+        renderCreativeActionCard(replyDiv, userText, fullText);
 
     } catch (err) {
         logTerm(`🔴 WebGPU Execution Error: ${err.message}`);
@@ -556,142 +476,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
         );
 
         if (isTokenOverflow) {
-            logTerm("⚠️ RAG payload exceeded 2048 token limit. Presenting Pivot Choice window...");
-
-            const matchedSentences = Array.isArray(matchedContext) ? matchedContext : [];
-            const totalSentences = matchedSentences.length;
-
-            if (totalSentences > 0) {
-                logTerm(`📦 Corpus matches successfully received as an array of ${totalSentences} individual sentence chunks.`);
-
-                replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus.`;
-
-                const pivotWindow = document.createElement('div');
-                pivotWindow.className = 'pivot-choice-box';
-                pivotWindow.style.cssText = 'margin: 10px 0; padding: 12px; border: 1px solid #30d158; border-radius: 8px; background-color: rgba(48, 209, 88, 0.08);';
-
-                pivotWindow.innerHTML = `
-                  <p style="margin-top: 0; font-weight: bold; color: #30d158;">Would you like to switch to a Creative response instead, or continue with the full data dump of ${totalSentences} matching sentences?</p>
-                  <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                    <button id="btn-creative-pivot" style="background-color: #30d158; color: #000; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                      🟢 Give Creative Response Instead
-                    </button>
-                    <button id="btn-continue-dump" style="background-color: #ff453a; color: #fff; border: none; padding: 8px 14px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                      🔴 Continue with General Training Dump (${totalSentences} messages)
-                    </button>
-                  </div>
-                `;
-                replyDiv.appendChild(pivotWindow);
-                history.scrollTop = history.scrollHeight;
-
-                const executeGeneralDump = async () => {
-                    pivotWindow.remove();
-                    replyDiv.innerHTML = `<b>Rob:</b> I found extensive details across <b>${totalSentences}</b> matching sentences in my <code>general_training/</code> corpus. I will respond in <b>${totalSentences}</b> sequential messages below to ensure zero data loss:`;
-                    
-                    for (let i = 0; i < totalSentences; i++) {
-                        const sentence = matchedSentences[i];
-                        logTerm(`🔄 [Chunk Loop] Processing sentence ${i + 1} of ${totalSentences} (Length: ${sentence.length} chars)...`);
-
-                        const sentenceMessages = [
-                            { 
-                                role: "system", 
-                                content: `You are Rob, an autonomous local AI engine created by Dmitrii Zavalin. Answer the user's question using STRICTLY AND ONLY the single reference sentence provided below. Do not extrapolate.\n\n--- REFERENCE SENTENCE ---\n${sentence}` 
-                            },
-                            { role: "user", content: userText }
-                        ];
-
-                        const chunkReplyDiv = document.createElement("div");
-                        chunkReplyDiv.className = "chat-msg chat-rob";
-                        chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> `;
-                        history.appendChild(chunkReplyDiv);
-                        history.scrollTop = history.scrollHeight;
-
-                        try {
-                            const chunkGenerator = await engine.chat.completions.create({
-                                messages: sentenceMessages,
-                                temperature: 0.0,
-                                max_tokens: 150,
-                                stream: true
-                            });
-
-                            let chunkText = "";
-                            for await (const chunk of chunkGenerator) {
-                                const content = chunk.choices[0]?.delta?.content || "";
-                                chunkText += content;
-                                
-                                if (typeof window.marked !== 'undefined' && window.marked.parse) {
-                                    chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> ` + window.marked.parse(chunkText);
-                                } else {
-                                    chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> ` + chunkText;
-                                }
-                                history.scrollTop = history.scrollHeight;
-                            }
-
-                            logTerm(`✅ [Chunk Loop] Successfully streamed sentence ${i + 1}/${totalSentences} (${chunkText.length} chars).`);
-
-                        } catch (chunkErr) {
-                            logTerm(`⚠️ Minor note on sentence chunk ${i + 1}: ${chunkErr.message}`);
-                            chunkReplyDiv.innerHTML = `<b>Rob [Match ${i + 1}/${totalSentences}]:</b> [Skipped due to generation limit]`;
-                        }
-                    }
-
-                    if (chatHistoryMessages.length > 0 && chatHistoryMessages[chatHistoryMessages.length - 1].role === 'user') {
-                        chatHistoryMessages.pop();
-                    }
-
-                    logTerm(`✅ 1-Sentence = 1-Chunk Sequential Streaming Loop completed successfully across all ${totalSentences} sections (History left clean).`);
-                };
-
-                const executeCreativePivot = async () => {
-                    pivotWindow.remove();
-                    replyDiv.innerHTML = `<b>Rob:</b> Switched to Creative Response mode...`;
-                    
-                    try {
-                        const creativeMessages = [
-                            { 
-                                role: "system", 
-                                content: `You are Rob, an autonomous sovereign AI assistant created by Dmitrii Zavalin. Be helpful, polite, precise, and conversational.` 
-                            },
-                            { role: "user", content: userText }
-                        ];
-
-                        const creativeGenerator = await engine.chat.completions.create({
-                            messages: creativeMessages,
-                            temperature: 0.5,
-                            max_tokens: 384,
-                            stream: true
-                        });
-
-                        let creativeText = "";
-                        for await (const chunk of creativeGenerator) {
-                            const content = chunk.choices[0]?.delta?.content || "";
-                            creativeText += content;
-
-                            if (typeof window.marked !== 'undefined' && window.marked.parse) {
-                                replyDiv.innerHTML = "<b>Rob:</b> " + window.marked.parse(creativeText);
-                            } else {
-                                replyDiv.innerHTML = "<b>Rob:</b> " + creativeText;
-                            }
-                            history.scrollTop = history.scrollHeight;
-                        }
-
-                        chatHistoryMessages.push({ role: "assistant", content: creativeText });
-                        logTerm(`✅ Creative pivot response completed successfully.`);
-                        renderModeActionCard(replyDiv, false, userText);
-                    } catch (creativeErr) {
-                        logTerm(`🔴 Creative Pivot Error: ${creativeErr.message}`);
-                        replyDiv.innerText = "Rob Error: " + creativeErr.message;
-                    }
-                };
-
-                document.getElementById('btn-creative-pivot').onclick = executeCreativePivot;
-                document.getElementById('btn-continue-dump').onclick = executeGeneralDump;
-
-            } else {
-                logTerm(`⚠️ Token overflow caught, but matchedSentences array is empty.`);
-                replyDiv.innerText = "Rob Error: Prompt tokens exceed context window size limit. Please try a narrower, more specific question!";
-            }
-
+            logTerm("⚠️ Prompt tokens exceed context window size limit.");
+            replyDiv.innerText = "Rob Error: Prompt tokens exceed context window size limit. Please try a narrower, more specific question!";
         } else if (isGpuCrash) {
             logTerm("⚠️ GPU context reset encountered. Displaying compact browser restart and export window.");
             
@@ -725,10 +511,6 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
             replyDiv.innerText = "Rob Error: " + err.message;
         }
     } finally {
-        if (statusDiv && statusDiv.parentNode) {
-            statusDiv.parentNode.removeChild(statusDiv);
-        }
-
         isGenerating = false;
         inputField.disabled = false;
         sendBtn.disabled = false;
@@ -737,38 +519,37 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 }
 
 /**
- * Renders the color-coded technical mode badge & action buttons below Rob's message
+ * Renders Action Card for Strict Knowledge Mode with manual memory curation button & verification disclaimer
  */
-function renderModeActionCard(targetReplyDiv, isStrict, userQuery) {
+function renderStrictMemoryActionCard(targetReplyDiv, userQuery, groundedText) {
     const actionCard = document.createElement("div");
     activeActionCard = actionCard;
     actionCard.className = "mode-action-card";
 
-    const badgeBg = isStrict ? "rgba(255, 69, 58, 0.12)" : "rgba(48, 209, 88, 0.12)";
-    const badgeBorder = isStrict ? "#ff453a" : "#30d158";
-    const badgeText = isStrict ? "🔴 Generated in Strict Knowledge Mode (RAG Grounded)" : "🟢 Generated in Creative / General Conversation Mode";
-
     actionCard.style.cssText = `
-        background: ${badgeBg};
-        border: 1px solid ${badgeBorder};
-        padding: 8px 12px;
+        background: rgba(255, 69, 58, 0.12);
+        border: 1px solid #ff453a;
+        padding: 10px 14px;
         border-radius: 6px;
         margin: 6px 0 12px 0;
         font-size: 0.85em;
     `;
 
     actionCard.innerHTML = `
-        <div style="margin-bottom: 6px; font-weight: bold; color: ${badgeBorder};">
-            ${badgeText}
+        <div style="margin-bottom: 6px; font-weight: bold; color: #ff453a;">
+            🔴 Generated in Strict Knowledge Mode (RAG Grounded)
+        </div>
+        <div style="color: #b00020; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4;">
+            🔒 This information is taken directly from the <code>general_training/</code> corpus without prior verification (please check the accuracy before using it).
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                🎨 Redo in Creative Mode
+            <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
+                🧠 Remember this information
             </button>
-            <button class="redo-strict-btn" style="background: #2c2c2e; color: #ff6b6b; border: 1px solid #ff453a; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
-                🔒 Redo in Strict Knowledge Mode
+            <button class="summarize-chat-btn" style="background: #5856d6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                📜 Summarize Chat
             </button>
-            <button class="keep-btn" style="background: #0a84ff; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+            <button class="keep-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
                 ✅ Keep Response & Continue
             </button>
         </div>
@@ -776,15 +557,85 @@ function renderModeActionCard(targetReplyDiv, isStrict, userQuery) {
 
     targetReplyDiv.after(actionCard);
 
-    // Event Bindings
+    actionCard.querySelector('.remember-info-btn').onclick = () => {
+        chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userQuery, 0.6);
+        chatHistoryMessages.push({ role: "user", content: userQuery });
+        chatHistoryMessages.push({ role: "assistant", content: `Grounded corpus records:\n${groundedText}` });
+        logTerm(`🧠 [Manual Memory Curation] Grounded records explicitly committed to session memory.`);
+        actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
+        actionCard.querySelector('.remember-info-btn').disabled = true;
+        actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
+
+    actionCard.querySelector('.summarize-chat-btn').onclick = () => {
+        renderChatSummaryView(actionCard);
+    };
+
+    actionCard.querySelector('.keep-btn').onclick = () => {
+        logTerm("✅ User confirmed response. Closing action card.");
+        finalizePreviousActionCard();
+    };
+}
+
+/**
+ * Renders Action Card for Creative Mode with manual memory button, brainstorming disclaimer & redo button
+ */
+function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText) {
+    const actionCard = document.createElement("div");
+    activeActionCard = actionCard;
+    actionCard.className = "mode-action-card";
+
+    actionCard.style.cssText = `
+        background: rgba(48, 209, 88, 0.12);
+        border: 1px solid #30d158;
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin: 6px 0 12px 0;
+        font-size: 0.85em;
+    `;
+
+    actionCard.innerHTML = `
+        <div style="margin-bottom: 6px; font-weight: bold; color: #137333;">
+            🟢 Generated in Creative / General Conversation Mode (Stateless)
+        </div>
+        <div style="color: #2e7d32; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4;">
+            ⚠️ This information may be incorrect as it's generated under creativity temperature and should be used for brainstorming only, not as a fact (until correctness is checked).
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
+                🧠 Remember this information
+            </button>
+            <button class="summarize-chat-btn" style="background: #5856d6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                📜 Summarize Chat
+            </button>
+            <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                🎨 Redo in Creative Mode
+            </button>
+            <button class="keep-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                ✅ Keep Response & Continue
+            </button>
+        </div>
+    `;
+
+    targetReplyDiv.after(actionCard);
+
+    actionCard.querySelector('.remember-info-btn').onclick = () => {
+        chatHistoryMessages = deduplicateChatHistory(chatHistoryMessages, userQuery, 0.6);
+        chatHistoryMessages.push({ role: "user", content: userQuery });
+        chatHistoryMessages.push({ role: "assistant", content: assistantReplyText });
+        logTerm(`🧠 [Manual Memory Curation] Creative response explicitly committed to session memory.`);
+        actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
+        actionCard.querySelector('.remember-info-btn').disabled = true;
+        actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
+
+    actionCard.querySelector('.summarize-chat-btn').onclick = () => {
+        renderChatSummaryView(actionCard);
+    };
+
     actionCard.querySelector('.redo-creative-btn').onclick = () => {
         logTerm("🎨 User selected: Redo in Creative Mode");
         sendChatMessage('creative', targetReplyDiv, userQuery);
-    };
-
-    actionCard.querySelector('.redo-strict-btn').onclick = () => {
-        logTerm("🔒 User selected: Redo in Strict Knowledge Mode");
-        sendChatMessage('strict', targetReplyDiv, userQuery);
     };
 
     actionCard.querySelector('.keep-btn').onclick = () => {
