@@ -409,23 +409,17 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // ==========================================
 
     // ==========================================
-    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION (AUTOMATIC FALLBACK)
+    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION (STATESLESS SINGLE-TURN)
     // ==========================================
-    logTerm(`🟢 [Creative Mode] 0 corpus matches or manual override. Executing unconstrained generation...`);
+    logTerm(`🟢 [Creative Mode] 0 corpus matches or manual override. Executing stateless single-turn generation...`);
 
     const systemInstruction = buildSystemInstruction();
 
-    // Update System Instruction in active history
-    if (chatHistoryMessages.length === 0) {
-        chatHistoryMessages.push({ role: "system", content: systemInstruction });
-    } else {
-        chatHistoryMessages[0] = { role: "system", content: systemInstruction };
-    }
-
-    // Prepare temporary messages array for creative generation without polluting history yet
-    const tempMessages = [...chatHistoryMessages];
-    const cleanedTempMessages = deduplicateChatHistory(tempMessages, userText, 0.6);
-    cleanedTempMessages.push({ role: "user", content: userText });
+    // Strict Stateless Single-Turn Payload (System Instruction + Current User Query Only)
+    const statelessMessages = [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userText }
+    ];
 
     // Read live values from Control Panel sliders
     const sliderTemp = document.getElementById("slider-temp");
@@ -445,7 +439,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
-            messages: cleanedTempMessages,
+            messages: statelessMessages,
             temperature: userTempSetting,
             max_tokens: userMaxTokensSetting,
             stream: true
@@ -602,7 +596,7 @@ function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText)
 
     actionCard.innerHTML = `
         <div style="margin-bottom: 6px; font-weight: bold; color: #137333;">
-            🟢 Generated in Creative / General Conversation Mode
+            🟢 Generated in Creative / General Conversation Mode (Stateless)
         </div>
         <div style="color: #2e7d32; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4;">
             ⚠️ This information may be incorrect as it's generated under creativity temperature and should be used for brainstorming only, not as a fact (until correctness is checked).
