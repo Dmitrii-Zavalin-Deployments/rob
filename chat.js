@@ -69,27 +69,45 @@ function initEngineTuners() {
                 valTokens.innerText = "320";
             }
 
-            // 4. Reset Match Threshold Slider
+            // 4. Reset Match Threshold Slider to 100%
             if (sliderMatch && valMatch) {
-                sliderMatch.value = "20";
-                valMatch.innerText = "20";
-                setMatchThreshold(0.20);
+                sliderMatch.value = "100";
+                valMatch.innerText = "100";
+                setMatchThreshold(1.00);
             }
 
-            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 20%, Extreme/Bypass Modes: OFF).");
+            logTerm("🎛️ [Control Panel] Engine tuners reset to default values (Temp: 0.50, Tokens: 320, Match: 100%, Extreme/Bypass Modes: OFF).");
         };
     }
 }
 
 // Execute initialization safely regardless of module loading state
 if (document.readyState === 'loading') {
-    document.addEventListener("DOMContentLoaded", initEngineTuners);
+    document.addEventListener("DOMContentLoaded", () => {
+        initEngineTuners();
+        // Initialize RAG match threshold to 100% on load if slider exists
+        const sliderMatch = document.getElementById("slider-match");
+        if (sliderMatch) {
+            sliderMatch.value = "100";
+            const valMatch = document.getElementById("val-match");
+            if (valMatch) valMatch.innerText = "100";
+            setMatchThreshold(1.00);
+        }
+    });
 } else {
     initEngineTuners();
+    const sliderMatch = document.getElementById("slider-match");
+    if (sliderMatch) {
+        sliderMatch.value = "100";
+        const valMatch = document.getElementById("val-match");
+        if (valMatch) valMatch.innerText = "100";
+        setMatchThreshold(1.00);
+    }
 }
 
 /**
- * Calculates Jaccard word-set similarity percentage between two strings (0.0 to 1.0).
+ * Calculates query containment ratio: what fraction of words in str1 (query) exist inside str2 (target).
+ * Returns a normalized value between 0.0 and 1.0.
  */
 function getSimilarityScore(str1, str2) {
     const s1 = str1.toLowerCase().trim();
@@ -99,13 +117,14 @@ function getSimilarityScore(str1, str2) {
     const words1 = new Set(s1.split(/\s+/));
     const words2 = new Set(s2.split(/\s+/));
     
+    if (words1.size === 0) return 0;
+
     let intersection = 0;
     for (let word of words1) {
         if (words2.has(word)) intersection++;
     }
     
-    const union = new Set([...words1, ...words2]).size;
-    return union === 0 ? 0 : (intersection / union);
+    return intersection / words1.size;
 }
 
 /**
@@ -215,6 +234,34 @@ function finalizePreviousActionCard() {
     }
 }
 
+/**
+ * Helper to generate a deterministic text summary from chatHistoryMessages without LLM inference.
+ */
+function renderChatSummaryView(targetContainer) {
+    const assistantTurns = chatHistoryMessages.filter(m => m.role === 'assistant');
+    
+    if (assistantTurns.length === 0) {
+        alert("No assistant history recorded in memory yet!");
+        return;
+    }
+
+    let summaryHtml = `<div class="chat-summary-box" style="margin-top: 10px; padding: 10px; background: rgba(0, 0, 0, 0.2); border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;">`;
+    summaryHtml += `<b>📜 Cumulative Chat History Summary (${assistantTurns.length} recorded responses):</b><br><br>`;
+    
+    assistantTurns.forEach((turn, idx) => {
+        summaryHtml += `<div style="margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;"><b>[Turn ${idx + 1}]:</b> ${escapeHtml(turn.content)}</div>`;
+    });
+    summaryHtml += `</div>`;
+
+    const existingSummary = targetContainer.querySelector('.chat-summary-box');
+    if (existingSummary) {
+        existingSummary.remove();
+    }
+
+    targetContainer.insertAdjacentHTML('beforeend', summaryHtml);
+    logTerm(`📜 [Chat Summary] Generated deterministic summary from ${assistantTurns.length} recorded assistant messages.`);
+}
+
 export async function sendChatMessage(forceMode = null, targetReplyDiv = null, lastUserQuery = null) {
     if (isGenerating) return;
 
@@ -309,17 +356,8 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     history.appendChild(statusDiv);
     history.scrollTop = history.scrollHeight;
 
-    // Resolve implicit pronouns ("it", "this", "that") using recent history for RAG lookup
-    let ragSearchQuery = userText;
-    const implicitPronouns = /\b(it|its|they|them|their|this|that|project|topic|discussing)\b/i;
-
-    if (implicitPronouns.test(userText) && chatHistoryMessages.length > 2) {
-        const lastUserMsg = [...chatHistoryMessages].reverse().find(m => m.role === 'user');
-        if (lastUserMsg) {
-            ragSearchQuery = `${lastUserMsg.content} ${userText}`;
-            logTerm(`🔄 [chat.js -> Query Resolution] Expanded RAG search query: "${ragSearchQuery}"`);
-        }
-    }
+    // Strict 1 Query = 1 Response Isolation (no history prepending during search)
+    const ragSearchQuery = userText;
 
     // Run Sentence-by-Sentence Combinatorics RAG Extraction
     const matchedContext = await rankAndExtractRelevantSentences(ragSearchQuery, (filename, matchedSentencesChunk) => {
@@ -371,23 +409,17 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
     // ==========================================
 
     // ==========================================
-    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION (AUTOMATIC FALLBACK)
+    // 3. CREATIVE / GENERAL CONVERSATION MODE EXECUTION (STATESLESS SINGLE-TURN)
     // ==========================================
-    logTerm(`🟢 [Creative Mode] 0 corpus matches or manual override. Executing unconstrained generation...`);
+    logTerm(`🟢 [Creative Mode] 0 corpus matches or manual override. Executing stateless single-turn generation...`);
 
     const systemInstruction = buildSystemInstruction();
 
-    // Update System Instruction in active history
-    if (chatHistoryMessages.length === 0) {
-        chatHistoryMessages.push({ role: "system", content: systemInstruction });
-    } else {
-        chatHistoryMessages[0] = { role: "system", content: systemInstruction };
-    }
-
-    // Prepare temporary messages array for creative generation without polluting history yet
-    const tempMessages = [...chatHistoryMessages];
-    const cleanedTempMessages = deduplicateChatHistory(tempMessages, userText, 0.6);
-    cleanedTempMessages.push({ role: "user", content: userText });
+    // Strict Stateless Single-Turn Payload (System Instruction + Current User Query Only)
+    const statelessMessages = [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userText }
+    ];
 
     // Read live values from Control Panel sliders
     const sliderTemp = document.getElementById("slider-temp");
@@ -407,7 +439,7 @@ export async function sendChatMessage(forceMode = null, targetReplyDiv = null, l
 
     try {
         const asyncChunkGenerator = await engine.chat.completions.create({
-            messages: cleanedTempMessages,
+            messages: statelessMessages,
             temperature: userTempSetting,
             max_tokens: userMaxTokensSetting,
             stream: true
@@ -514,6 +546,9 @@ function renderStrictMemoryActionCard(targetReplyDiv, userQuery, groundedText) {
             <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
                 🧠 Remember this information
             </button>
+            <button class="summarize-chat-btn" style="background: #5856d6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                📜 Summarize Chat
+            </button>
             <button class="keep-btn" style="background: #2c2c2e; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
                 ✅ Keep Response & Continue
             </button>
@@ -530,6 +565,10 @@ function renderStrictMemoryActionCard(targetReplyDiv, userQuery, groundedText) {
         actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
         actionCard.querySelector('.remember-info-btn').disabled = true;
         actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
+
+    actionCard.querySelector('.summarize-chat-btn').onclick = () => {
+        renderChatSummaryView(actionCard);
     };
 
     actionCard.querySelector('.keep-btn').onclick = () => {
@@ -557,7 +596,7 @@ function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText)
 
     actionCard.innerHTML = `
         <div style="margin-bottom: 6px; font-weight: bold; color: #137333;">
-            🟢 Generated in Creative / General Conversation Mode
+            🟢 Generated in Creative / General Conversation Mode (Stateless)
         </div>
         <div style="color: #2e7d32; font-size: 0.9em; margin-bottom: 8px; line-height: 1.4;">
             ⚠️ This information may be incorrect as it's generated under creativity temperature and should be used for brainstorming only, not as a fact (until correctness is checked).
@@ -565,6 +604,9 @@ function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText)
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="remember-info-btn" style="background: #0a84ff; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em;">
                 🧠 Remember this information
+            </button>
+            <button class="summarize-chat-btn" style="background: #5856d6; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                📜 Summarize Chat
             </button>
             <button class="redo-creative-btn" style="background: #2c2c2e; color: #30d158; border: 1px solid #30d158; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
                 🎨 Redo in Creative Mode
@@ -585,6 +627,10 @@ function renderCreativeActionCard(targetReplyDiv, userQuery, assistantReplyText)
         actionCard.querySelector('.remember-info-btn').innerText = "✅ Remembered Successfully!";
         actionCard.querySelector('.remember-info-btn').disabled = true;
         actionCard.querySelector('.remember-info-btn').style.background = "#30d158";
+    };
+
+    actionCard.querySelector('.summarize-chat-btn').onclick = () => {
+        renderChatSummaryView(actionCard);
     };
 
     actionCard.querySelector('.redo-creative-btn').onclick = () => {
