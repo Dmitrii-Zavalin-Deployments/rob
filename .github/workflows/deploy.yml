@@ -1,0 +1,72 @@
+name: Deploy Rob Engine to GitHub Pages
+
+on:
+  # Automatically run on every push to the main branch
+  push:
+    branches: [ main ]
+  # Allow manual execution directly from the GitHub Actions UI tab
+  workflow_dispatch:
+
+# Set minimal permissions required to read content and publish to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ensure only one concurrent deployment is running at a time
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      # =========================================================================
+      # 1. CHECKOUT REPOSITORY WITH LFS RESOLUTION (CRITICAL STEP)
+      # -------------------------------------------------------------------------
+      # Setting `lfs: true` forces the GitHub runner to automatically fetch and
+      # download the real binary model weights (e.g., params_shard_*.bin) and
+      # WASM modules from Git LFS storage into the build workspace.
+      #
+      # This prevents GitHub Pages from serving raw 133-byte Git LFS pointer files
+      # to the browser, resolving WebLLM tensor-cache shard size mismatch errors.
+      # =========================================================================
+      - name: 🗂️ Checkout Repository & Restore LFS Binary Assets
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true  # <--- Essential flag: Unpacks Git LFS pointers into full binary files
+
+      # =========================================================================
+      # 2. CONFIGURE GITHUB PAGES ENVIRONMENT
+      # -------------------------------------------------------------------------
+      # Automatically initializes base paths, metadata, and deployment configurations
+      # required for static hosting on GitHub Pages.
+      # =========================================================================
+      - name: 🌐 Configure GitHub Pages Infrastructure
+        uses: actions/configure-pages@v5
+
+      # =========================================================================
+      # 3. UPLOAD STATIC WEBSITE ARTIFACT
+      # -------------------------------------------------------------------------
+      # Bundles the repository files—now containing the fully resolved binary
+      # model shards inside `vendor/`—into a deployment package.
+      # =========================================================================
+      - name: 📦 Bundle & Upload Web Assets
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'  # Uploads the entire root directory including vendor/ assets
+
+      # =========================================================================
+      # 4. PUBLISH TO GITHUB PAGES CDN
+      # -------------------------------------------------------------------------
+      # Pushes the generated artifact directly to the live GitHub Pages host.
+      # Your browser will now receive the true binary files over standard HTTPS.
+      # =========================================================================
+      - name: 🚀 Deploy Live to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
